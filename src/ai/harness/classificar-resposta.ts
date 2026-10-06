@@ -16,7 +16,7 @@ export const Entrada = z.object({
   regras: z.array(z.string()).default([]),  // trechos vindos do RAG (prazo de cancelamento, preparo...)
   exemplos: z.array(z.object({ texto: z.string(), intencao: z.string() })).default([]),
 });
-export type Entrada = z.infer<typeof Entrada>;
+export type Entrada = z.input<typeof Entrada>;
 
 export const Saida = z.object({
   intencao: z.enum(["confirmou", "cancelou", "quer_remarcar", "duvida", "nao_sou_eu", "fora_de_escopo"]),

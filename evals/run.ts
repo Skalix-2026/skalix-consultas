@@ -11,6 +11,7 @@ const casos: Caso[] = readFileSync("evals/respostas.jsonl", "utf8").trim().split
 
 const base = { primeiroNome: "Maria", atendimento: "exame de Ultrassonografia", dataHoraLegivel: "seg, 31 ago, 14:12", clinicaNome: "Clínica Aurora" };
 
+async function main() {
 let ok = 0, okCore = 0, totalCore = 0;
 const erros: string[] = [];
 for (const c of casos) {
@@ -25,3 +26,6 @@ console.log(`Confirmou/cancelou: ${okCore}/${totalCore} (${((okCore / totalCore)
 if (erros.length) console.log("\nErros:\n- " + erros.join("\n- "));
 const meta = okCore / totalCore >= 0.97;
 process.exit(meta ? 0 : 1);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
