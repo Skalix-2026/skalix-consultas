@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+:root { --bg: #f6f7f9; --fg: #111827; }
+body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, sans-serif; }

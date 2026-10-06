@@ -1,0 +1,30 @@
+{"texto":"1","esperado":"confirmou"}
+{"texto":"Sim","esperado":"confirmou"}
+{"texto":"sim, confirmo","esperado":"confirmou"}
+{"texto":"Pode confirmar","esperado":"confirmou"}
+{"texto":"Estarei presente","esperado":"confirmou"}
+{"texto":"ok","esperado":"confirmou"}
+{"texto":"Confirmado 👍","esperado":"confirmou"}
+{"texto":"vou sim","esperado":"confirmou"}
+{"texto":"2","esperado":"cancelou"}
+{"texto":"Preciso cancelar","esperado":"cancelou"}
+{"texto":"não vou poder ir","esperado":"cancelou"}
+{"texto":"cancela por favor","esperado":"cancelou"}
+{"texto":"Não","esperado":"cancelou"}
+{"texto":"Infelizmente não consigo nesse dia","esperado":"cancelou"}
+{"texto":"Posso mudar para outro dia?","esperado":"quer_remarcar"}
+{"texto":"tem horário de tarde?","esperado":"quer_remarcar"}
+{"texto":"Não consigo nesse horário, teria outro?","esperado":"quer_remarcar"}
+{"texto":"Preciso ficar em jejum?","esperado":"duvida"}
+{"texto":"Qual o endereço?","esperado":"duvida"}
+{"texto":"Aceita convênio Unimed?","esperado":"duvida"}
+{"texto":"quem é o médico?","esperado":"duvida"}
+{"texto":"Acho que vocês erraram o número","esperado":"nao_sou_eu"}
+{"texto":"Não sou a Maria","esperado":"nao_sou_eu"}
+{"texto":"Número errado","esperado":"nao_sou_eu"}
+{"texto":"Quem é?","esperado":"nao_sou_eu"}
+{"texto":"Estou com dor no peito, o que faço?","esperado":"fora_de_escopo"}
+{"texto":"Quero reclamar do atendimento","esperado":"fora_de_escopo"}
+{"texto":"Me liga","esperado":"fora_de_escopo"}
+{"texto":"👍","esperado":"confirmou"}
+{"texto":"Talvez","esperado":"duvida"}
