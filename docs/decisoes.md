@@ -9,6 +9,7 @@
 | 2026-10-02 | Desenvolver com texto livre (janela 24 h) + `FakeSender` até a verificação da empresa | Erro 130497 bloqueia templates de conta não verificada no Brasil |
 | 2026-10-05 | Prazo reduzido para 21 dias (5 → 26 out): sem Central de Vagas, PDF, multiunidade na UI, piloto de 2 semanas | Entrega contratada em 21 dias |
 | 2026-10-05 | Token da Meta via usuário do sistema (permanente), nunca token pessoal | Não depende de ninguém da equipe; sobrevive a troca de senha |
+| 2026-10-05 | Repositório dentro do OneDrive; `node_modules` instalado pelo terminal do Windows | Instalação via ambiente remoto é lenta no OneDrive; considerar mover para `C:\dev` se o sync incomodar |
 
 ## Evento real do webhook (referência)
 Mensagem recebida: `entry[].changes[].value.messages[] = { from, id (wamid), timestamp, type, text.body }`,

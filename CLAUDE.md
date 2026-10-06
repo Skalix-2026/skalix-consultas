@@ -46,7 +46,12 @@ apaga dados de pacientes sem aprovação explícita do Ti.
 - Webhook local: `npx ngrok http 3000` e configurar a URL em Meta → WhatsApp → Configuração.
 
 ## Estado atual (atualizar ao fim de cada sessão)
-- Meta: app, portfólio, WABA de teste, usuário do sistema e token permanente prontos.
+- 5 out: esqueleto completo (Next 16, Drizzle, Inngest, webhook, harness, evals, testes). Git iniciado, 1 commit.
+- `npm install` deve ser rodado pelo Ti no terminal do Windows (a pasta está no OneDrive; instalar pelo
+  ambiente do Claude é lento demais). Depois: `npm run typecheck && npm test`.
+- Meta: app, portfólio, WABA de teste, usuário do sistema e token permanente prontos (.env).
 - Bloqueio: envio de TEMPLATE retorna erro 130497 até a verificação da empresa (CNPJ) sair.
-  Enquanto isso, desenvolver com texto livre dentro da janela de 24 h e com `FakeSender`.
-- Próximo: Fase 0 — inicializar Next.js preservando os arquivos deste repositório.
+  Enquanto isso, `WHATSAPP_FAKE=1` e texto livre dentro da janela de 24 h.
+- Faltam no .env: META_APP_SECRET, ANTHROPIC_API_KEY, DATABASE_URL e chaves Supabase.
+- Próximo (Fase 0, dias 1–3): criar projeto Supabase → `npm run db:push` → deploy Vercel →
+  webhook da Meta apontando para `/api/webhooks/whatsapp` → salvar eventos em `eventos_webhook` (TODO em route.ts).
