@@ -27,6 +27,15 @@ apaga dados de pacientes sem aprovação explícita do Ti.
 - Observabilidade de IA: Langfuse. Testes: Vitest + Playwright. Deploy: Vercel.
 - WhatsApp: Cloud API oficial da Meta (`src/lib/whatsapp.ts`). IDs no `.env`.
 
+## Custo de IA (orçamento: US$ 5 de crédito — não desperdiçar)
+- Haiku 4.5 por padrão em tudo. Sonnet só para extrair agenda de PDF, e só na primeira leitura
+  de um arquivo (cache do resultado em `lotes.mapeamento_colunas`; nunca reprocessar o mesmo arquivo).
+- `max_tokens` sempre explícito e pequeno (classificação: 400; extração: o necessário). `temperature: 0`.
+- Nunca chamar o modelo em loop sem limite. Toda chamada passa pelo harness, que registra custo no Langfuse.
+- Evals (`npm run eval`) só quando o prompt ou o modelo mudar — nunca em CI a cada push nesta fase.
+- Em dev, antes de ligar a IA de verdade, testar o fluxo com `WHATSAPP_FAKE=1` e respostas simuladas.
+- Regra prática: se uma tarefa for gastar mais de US$ 0,50 em chamadas, perguntar ao Ti antes.
+
 ## Convenções
 - Idioma do código: inglês. Idioma de UI, docs e commits: português.
 - Pastas: `src/app` (rotas e páginas), `src/db` (schema/queries), `src/lib` (integrações),
