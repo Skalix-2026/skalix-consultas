@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { inngest, Ev } from "@/inngest/client";
+import { salvarEventoWebhook } from "@/db/queries/eventos";
 
 /**
  * Webhook da WhatsApp Cloud API.
  * GET  — validação inicial (hub.challenge) feita pela Meta ao salvar a URL.
  * POST — eventos: mensagens recebidas (field=messages) e status (sent/delivered/read/failed).
  *
- * Regras: responder 200 em < 5s SEMPRE (a Meta reenvia se não receber);
+ * Regras: responder 200 em < 5 s SEMPRE (a Meta reenvia se não receber);
  * gravar o payload bruto em eventos_webhook e processar de forma assíncrona (Inngest).
  */
 
@@ -25,24 +27,45 @@ export async function POST(req: NextRequest) {
   const sig = req.headers.get("x-hub-signature-256") ?? "";
   if (!verifySignature(raw, sig)) return new NextResponse("invalid signature", { status: 401 });
 
-  const body = JSON.parse(raw) as WebhookBody;
+  let body: WebhookBody;
+  try { body = JSON.parse(raw) as WebhookBody; } catch { return new NextResponse("bad json", { status: 400 }); }
 
-  // 2) Persistir bruto e enfileirar — TODO Fase 0: salvar em eventos_webhook e disparar Inngest
+  // 2) Persistir o payload bruto (auditoria). Falha de banco não pode derrubar o 200.
+  let eventoId: string | undefined;
+  if (process.env.DATABASE_URL) {
+    try { eventoId = await salvarEventoWebhook(body); }
+    catch (e) { console.error("[webhook] falha ao salvar evento", (e as Error).message); }
+  }
+
+  // 3) Enfileirar para processamento assíncrono
+  const eventos: { name: string; data: unknown }[] = [];
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {
       const v = change.value;
       for (const m of v.messages ?? []) {
-        // TODO: inngest.send({ name: "whatsapp/mensagem.recebida", data: { from: m.from, wamid: m.id, texto: m.text?.body, botao: m.button?.text, timestamp: m.timestamp } })
-        console.log("[webhook] mensagem", { from: m.from.slice(-4), tipo: m.type });
+        eventos.push({
+          name: Ev.mensagemRecebida.name,
+          data: {
+            eventoId, from: m.from, wamid: m.id, timestamp: m.timestamp,
+            phoneNumberId: v.metadata.phone_number_id,
+            texto: m.text?.body, botao: m.button?.text ?? m.interactive?.button_reply?.title,
+          },
+        });
       }
       for (const s of v.statuses ?? []) {
-        // TODO: inngest.send({ name: "whatsapp/status.atualizado", data: { wamid: s.id, status: s.status, erro: s.errors?.[0] } })
-        console.log("[webhook] status", { status: s.status, erro: s.errors?.[0]?.code });
+        eventos.push({
+          name: Ev.statusAtualizado.name,
+          data: { wamid: s.id, status: s.status, erroCodigo: s.errors?.[0]?.code, erroMensagem: s.errors?.[0]?.title },
+        });
       }
     }
   }
+  if (eventos.length && process.env.INNGEST_EVENT_KEY !== "off") {
+    try { await inngest.send(eventos); }
+    catch (e) { console.error("[webhook] falha ao enviar para Inngest", (e as Error).message); }
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, eventos: eventos.length });
 }
 
 function verifySignature(raw: string, header: string) {
@@ -61,6 +84,11 @@ type WebhookBody = {
 type ChangeValue = {
   metadata: { display_phone_number: string; phone_number_id: string };
   contacts?: { wa_id: string; profile?: { name?: string } }[];
-  messages?: { from: string; id: string; timestamp: string; type: string; text?: { body: string }; button?: { text: string; payload: string } }[];
+  messages?: {
+    from: string; id: string; timestamp: string; type: string;
+    text?: { body: string };
+    button?: { text: string; payload: string };
+    interactive?: { button_reply?: { id: string; title: string } };
+  }[];
   statuses?: { id: string; status: "sent" | "delivered" | "read" | "failed"; timestamp: string; recipient_id: string; errors?: { code: number; title: string }[] }[];
 };
