@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  if (eventos.length && process.env.INNGEST_EVENT_KEY !== "off") {
+  // Inngest só é acionado quando a chave existir (Fase 1). Sem ela, o evento fica salvo em eventos_webhook para reprocessar.
+  if (eventos.length && process.env.INNGEST_EVENT_KEY && process.env.INNGEST_EVENT_KEY !== "off") {
     try { await inngest.send(eventos); }
     catch (e) { console.error("[webhook] falha ao enviar para Inngest", (e as Error).message); }
   }

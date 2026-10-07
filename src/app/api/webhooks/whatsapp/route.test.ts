@@ -6,7 +6,7 @@ beforeAll(() => {
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = "segredo-teste";
   process.env.META_APP_SECRET = "";
   process.env.DATABASE_URL = "";
-  process.env.INNGEST_EVENT_KEY = "off";
+  process.env.INNGEST_EVENT_KEY = "";
 });
 
 describe("webhook GET (validação da Meta)", () => {
