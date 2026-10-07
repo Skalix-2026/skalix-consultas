@@ -55,12 +55,13 @@ apaga dados de pacientes sem aprovação explícita do Ti.
 - Webhook local: `npx ngrok http 3000` e configurar a URL em Meta → WhatsApp → Configuração.
 
 ## Estado atual (atualizar ao fim de cada sessão)
-- 5 out: esqueleto completo (Next 16, Drizzle, Inngest, webhook, harness, evals, testes). Git iniciado, 1 commit.
-- `npm install` deve ser rodado pelo Ti no terminal do Windows (a pasta está no OneDrive; instalar pelo
-  ambiente do Claude é lento demais). Depois: `npm run typecheck && npm test`.
-- Meta: app, portfólio, WABA de teste, usuário do sistema e token permanente prontos (.env).
-- Bloqueio: envio de TEMPLATE retorna erro 130497 até a verificação da empresa (CNPJ) sair.
-  Enquanto isso, `WHATSAPP_FAKE=1` e texto livre dentro da janela de 24 h.
-- Faltam no .env: META_APP_SECRET, ANTHROPIC_API_KEY, DATABASE_URL e chaves Supabase.
-- Próximo (Fase 0, dias 1–3): criar projeto Supabase → `npm run db:push` → deploy Vercel →
-  webhook da Meta apontando para `/api/webhooks/whatsapp` → salvar eventos em `eventos_webhook` (TODO em route.ts).
+- 7 out: **Fase 0 concluída.** Deploy em https://skalix-consultas.vercel.app (Vercel, auto-deploy do GitHub
+  skalix2026/skalix-consultas). Supabase sa-east-1 com as 8 tabelas (db:push ok). Webhook da Meta verificado,
+  campo `messages` assinado, eventos de teste gravados em `eventos_webhook`. Typecheck e 5 testes verdes.
+- `.env` completo (Meta, Supabase, Anthropic, APP_SECRET). Vercel tem as mesmas variáveis + WHATSAPP_FAKE=1.
+- Inngest ainda NÃO configurado (sem INNGEST_EVENT_KEY): webhook grava no banco e não enfileira. Ligar na Fase 1.
+- Pendência Meta: mensagens reais do celular ainda não chegam ao webhook — verificar lista de destinatários de teste
+  (WhatsApp → Etapa 1 → "Para"). Envio de template segue bloqueado (130497) até verificação da empresa.
+- Orçamento IA: US$ 5 na Anthropic; regras de custo acima.
+- Próximo (Fase 1, 8–14 out): importação PDF/Excel/CSV, triagem, Central de Envios, função Inngest de envio
+  com idempotência, status via webhook. Começar por: `npm run dev` → tela /importar.
