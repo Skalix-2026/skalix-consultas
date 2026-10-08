@@ -10,6 +10,7 @@
 | 2026-10-05 | Prazo reduzido para 21 dias (5 → 26 out): sem Central de Vagas, PDF, multiunidade na UI, piloto de 2 semanas | Entrega contratada em 21 dias |
 | 2026-10-05 | Token da Meta via usuário do sistema (permanente), nunca token pessoal | Não depende de ninguém da equipe; sobrevive a troca de senha |
 | 2026-10-05 | Repositório dentro do OneDrive; `node_modules` instalado pelo terminal do Windows | Instalação via ambiente remoto é lenta no OneDrive; considerar mover para `C:\dev` se o sync incomodar |
+| 2026-10-08 | Toda WABA nova precisa de `POST /{waba_id}/subscribed_apps` com o token do usuário do sistema; sem isso a Meta só entrega webhooks ao app interno de testes (WA DevX) e nada chega ao nosso endpoint | Causa raiz de 2 dias sem receber mensagens reais; entra no fluxo de implantação de clínica |
 
 ## Evento real do webhook (referência)
 Mensagem recebida: `entry[].changes[].value.messages[] = { from, id (wamid), timestamp, type, text.body }`,

@@ -60,8 +60,8 @@ apaga dados de pacientes sem aprovação explícita do Ti.
   campo `messages` assinado, eventos de teste gravados em `eventos_webhook`. Typecheck e 5 testes verdes.
 - `.env` completo (Meta, Supabase, Anthropic, APP_SECRET). Vercel tem as mesmas variáveis + WHATSAPP_FAKE=1.
 - Inngest ainda NÃO configurado (sem INNGEST_EVENT_KEY): webhook grava no banco e não enfileira. Ligar na Fase 1.
-- Pendência Meta: mensagens reais do celular ainda não chegam ao webhook — verificar lista de destinatários de teste
-  (WhatsApp → Etapa 1 → "Para"). Envio de template segue bloqueado (130497) até verificação da empresa.
+- 8 out: app em modo Ao vivo; WABA inscrita no app via `POST /{waba_id}/subscribed_apps` (ver decisoes.md).
+  Página /privacidade publicada (exigência da Meta). Envio de template segue bloqueado (130497) até verificação da empresa.
 - Orçamento IA: US$ 5 na Anthropic; regras de custo acima.
 - Próximo (Fase 1, 8–14 out): importação PDF/Excel/CSV, triagem, Central de Envios, função Inngest de envio
   com idempotência, status via webhook. Começar por: `npm run dev` → tela /importar.
