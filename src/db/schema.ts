@@ -48,6 +48,7 @@ export const lotes = pgTable("lotes", {
   totalLinhas: integer("total_linhas").default(0).notNull(),
   linhasValidas: integer("linhas_validas").default(0).notNull(),
   status: statusLote("status").default("importado").notNull(),
+  enviandoDesde: timestamp("enviando_desde"),     // quando o lote entrou em "enviando" (detecta envio parado)
   mapeamentoColunas: jsonb("mapeamento_colunas"), // como a IA mapeou as colunas do arquivo
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
