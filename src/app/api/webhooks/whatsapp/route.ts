@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { inngest, Ev } from "@/inngest/client";
-import { salvarEventoWebhook } from "@/db/queries/eventos";
+import { salvarEventoWebhook, marcarEventoComErro } from "@/db/queries/eventos";
+import { aplicarStatusMensagemReal } from "@/db/queries/status-mensagem";
 
 /**
  * Webhook da WhatsApp Cloud API.
@@ -60,10 +61,23 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  // Inngest só é acionado quando a chave existir (Fase 1). Sem ela, o evento fica salvo em eventos_webhook para reprocessar.
-  if (eventos.length && process.env.INNGEST_EVENT_KEY && process.env.INNGEST_EVENT_KEY !== "off") {
-    try { await inngest.send(eventos); }
-    catch (e) { console.error("[webhook] falha ao enviar para Inngest", (e as Error).message); }
+  // Inngest só é acionado quando a chave existir (Fase 1). Sem ela, os status (sent/delivered/read/failed)
+  // são aplicados direto no banco; mensagens recebidas ficam salvas em eventos_webhook para reprocessar.
+  if (eventos.length) {
+    if (process.env.INNGEST_EVENT_KEY && process.env.INNGEST_EVENT_KEY !== "off") {
+      try { await inngest.send(eventos); }
+      catch (e) { console.error("[webhook] falha ao enviar para Inngest", (e as Error).message); }
+    } else if (process.env.DATABASE_URL) {
+      for (const ev of eventos) {
+        if (ev.name !== Ev.statusAtualizado.name) continue;
+        try {
+          const r = await aplicarStatusMensagemReal(Ev.statusAtualizado.data.parse(ev.data));
+          // status de wamid ainda desconhecido (chegou antes da gravação?) não se perde: fica no evento bruto p/ reprocesso
+          if (r === "desconhecido" && eventoId) await marcarEventoComErro(eventoId, "wamid_desconhecido");
+        }
+        catch (e) { console.error("[webhook] falha ao aplicar status", (e as Error).message); }
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, eventos: eventos.length });

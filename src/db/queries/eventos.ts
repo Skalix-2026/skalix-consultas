@@ -17,3 +17,9 @@ export async function marcarEventoProcessado(id: string, erro?: string) {
   const db = await getDb();
   await db.update(eventosWebhook).set({ processadoEm: new Date(), erro: erro ?? null }).where(eq(eventosWebhook.id, id));
 }
+
+/** Registra um erro SEM marcar como processado: o evento fica elegível a reprocesso futuro. */
+export async function marcarEventoComErro(id: string, erro: string) {
+  const db = await getDb();
+  await db.update(eventosWebhook).set({ erro }).where(eq(eventosWebhook.id, id));
+}
