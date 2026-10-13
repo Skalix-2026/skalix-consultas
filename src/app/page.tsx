@@ -1,3 +1,5 @@
+import { BotaoSair } from "./botao-sair";
+
 export default function Home() {
   const checks = [
     ["Banco de dados", Boolean(process.env.DATABASE_URL)],
@@ -10,7 +12,10 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-semibold">Skalix Consultas</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Skalix Consultas</h1>
+        <BotaoSair />
+      </div>
       <p className="mt-1 text-sm text-gray-600">Fase 0 · Fundação. Esta página some quando o painel entrar.</p>
       <ul className="mt-6 divide-y rounded-lg border bg-white">
         {checks.map(([label, ok]) => (

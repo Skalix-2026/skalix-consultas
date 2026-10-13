@@ -7,3 +7,5 @@ tsconfig.tsbuildinfo
 .vercel
 playwright-report
 test-results
+~$*
+*.tmp

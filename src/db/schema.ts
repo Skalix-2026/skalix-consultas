@@ -26,6 +26,7 @@ export const clinicas = pgTable("clinicas", {
   phoneNumberId: text("phone_number_id").notNull(),
   tokenRef: text("token_ref"),                  // nome da env var que guarda o token (nunca o token)
   regras: jsonb("regras").$type<{ prazoCancelamentoHoras?: number; preparos?: Record<string, string> }>(),
+  fuso: text("fuso").default("America/Sao_Paulo").notNull(), // IANA; MT/MS/RO/RR/AM = -04:00, AC = -05:00
   criadoEm: timestamp("criado_em").defaultNow().notNull(),
 });
 

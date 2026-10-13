@@ -39,10 +39,22 @@ export const metaSender: Sender = {
     }),
 };
 
-/** Sender falso para desenvolvimento enquanto a verificação da Meta não sai (erro 130497). */
+/**
+ * Sender falso para desenvolvimento enquanto a verificação da Meta não sai (erro 130497).
+ * Loga só telefone mascarado, nome do template e tamanhos — nunca o corpo nem os parâmetros
+ * (que levam nome do paciente, data e médico).
+ */
 export const fakeSender: Sender = {
-  async sendText(d, body) { console.log(`[FAKE] texto -> ${mask(d.to)}: ${body}`); return { wamid: `fake.${Date.now()}` }; },
-  async sendTemplate(d, name, params) { console.log(`[FAKE] template ${name} -> ${mask(d.to)}`, params); return { wamid: `fake.${Date.now()}` }; },
+  async sendText(d, body) {
+    const wamid = `fake.${Date.now()}`;
+    console.log("[FAKE] texto", { para: mask(d.to), tamanho: body.length, wamid });
+    return { wamid };
+  },
+  async sendTemplate(d, name, params) {
+    const wamid = `fake.${Date.now()}`;
+    console.log("[FAKE] template", { template: name, para: mask(d.to), parametros: params.length, wamid });
+    return { wamid };
+  },
 };
 
 export const sender: Sender = process.env.WHATSAPP_FAKE === "1" ? fakeSender : metaSender;

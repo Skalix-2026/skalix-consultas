@@ -1,5 +1,8 @@
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELO_CLASSIFICACAO } from "../modelos";
+import { registrarUso } from "../custo";
+import { extrairJson, textoDaResposta } from "../json";
 
 /**
  * Harness: classificar a resposta do paciente.
@@ -7,14 +10,17 @@ import Anthropic from "@anthropic-ai/sdk";
  * O modelo NÃO escreve no banco. Quem decide é o código que chama este harness.
  */
 
+const TAREFA = "classificar-resposta";
+
 export const Entrada = z.object({
   textoPaciente: z.string().min(1).max(2000),
-  primeiroNome: z.string(),                 // só o primeiro nome — nunca sobrenome/telefone
+  primeiroNome: z.string().regex(/^\p{L}+$/u).max(40), // só o primeiro nome (só letras) — nunca sobrenome/telefone
   atendimento: z.string(),
   dataHoraLegivel: z.string(),              // "seg, 31 ago, 14:12"
   clinicaNome: z.string(),
   regras: z.array(z.string()).default([]),  // trechos vindos do RAG (prazo de cancelamento, preparo...)
   exemplos: z.array(z.object({ texto: z.string(), intencao: z.string() })).default([]),
+  agendamentoId: z.uuid().optional(),       // só para o registro no Langfuse; NÃO vai ao modelo
 });
 export type Entrada = z.input<typeof Entrada>;
 
@@ -47,7 +53,7 @@ Responda SOMENTE com JSON válido no formato:
 
 export async function classificarResposta(input: Entrada, client = new Anthropic()): Promise<Saida & { precisaHumano: boolean; modelo: string }> {
   const e = Entrada.parse(input);
-  const modelo = "claude-haiku-4-5"; // TODO: confirmar id do modelo vigente no console da Anthropic
+  const modelo = MODELO_CLASSIFICACAO;
 
   const user = [
     `AGENDAMENTO: ${e.primeiroNome} — ${e.atendimento} — ${e.dataHoraLegivel}`,
@@ -63,10 +69,10 @@ export async function classificarResposta(input: Entrada, client = new Anthropic
     system: SYSTEM.replace("{clinica}", e.clinicaNome),
     messages: [{ role: "user", content: user }],
   });
+  await registrarUso({ tarefa: TAREFA, modelo, usage: res.usage, metadados: e.agendamentoId ? { agendamento_id: e.agendamentoId } : undefined });
 
-  const texto = res.content.find((c) => c.type === "text")?.text ?? "";
-  const json = texto.slice(texto.indexOf("{"), texto.lastIndexOf("}") + 1);
-  const saida = Saida.parse(JSON.parse(json)); // Zod: se a IA sair do formato, falha aqui, não no banco
+  if (res.stop_reason === "max_tokens") throw new Error(`${TAREFA}: resposta cortada por max_tokens`);
+  const saida = Saida.parse(extrairJson(textoDaResposta(res), TAREFA)); // Zod: se a IA sair do formato, falha aqui, não no banco
 
   return { ...saida, modelo, precisaHumano: saida.confianca < LIMIAR_CONFIANCA || !["confirmou", "cancelou"].includes(saida.intencao) };
 }
