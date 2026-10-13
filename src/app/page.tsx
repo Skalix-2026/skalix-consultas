@@ -17,6 +17,10 @@ export default function Home() {
         <BotaoSair />
       </div>
       <p className="mt-1 text-sm text-gray-600">Fase 0 · Fundação. Esta página some quando o painel entrar.</p>
+      <nav aria-label="Painel" className="mt-4 flex gap-4 text-sm font-medium underline">
+        <a href="/importar">Importar agenda</a>
+        <a href="/envios">Central de Envios</a>
+      </nav>
       <ul className="mt-6 divide-y rounded-lg border bg-white">
         {checks.map(([label, ok]) => (
           <li key={label} className="flex items-center justify-between px-4 py-3 text-sm">
