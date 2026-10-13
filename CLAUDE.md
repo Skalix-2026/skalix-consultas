@@ -63,5 +63,17 @@ apaga dados de pacientes sem aprovação explícita do Ti.
 - 8 out: app em modo Ao vivo; WABA inscrita no app via `POST /{waba_id}/subscribed_apps` (ver decisoes.md).
   Página /privacidade publicada (exigência da Meta). Envio de template segue bloqueado (130497) até verificação da empresa.
 - Orçamento IA: US$ 5 na Anthropic; regras de custo acima.
-- Próximo (Fase 1, 8–14 out): importação PDF/Excel/CSV, triagem, Central de Envios, função Inngest de envio
-  com idempotência, status via webhook. Começar por: `npm run dev` → tela /importar.
+- 13 out: **Fase 1 implementada (etapas 1–9), 227 testes e typecheck verdes, revisada pelo revisor.** Importação
+  (`/importar` → `POST /api/importar`, cache por hash), Central de Envios (`/envios`, `/api/lotes*`), função Inngest
+  `enviar-lote` idempotente (FakeSender com `WHATSAPP_FAKE=1`) e status via webhook sem regressão. Decisões em decisoes.md.
+- Commits das etapas 5–9 estão SÓ LOCAIS (sem push de propósito): o push dispara deploy na Vercel e o código novo
+  depende de coluna nova (`lotes.enviando_desde`).
+- **Pendências do Ti antes do push/teste ponta a ponta:**
+  1. `DATABASE_URL` do `.env` local falha ("tenant/user not found" no pooler Supabase): corrigir/despausar o projeto.
+  2. `npm run db:push` (coluna `lotes.enviando_desde`) e `npm run db:seed` (cria a clínica; opcional `CLINICA_ID`).
+  3. Configurar Inngest (INNGEST_EVENT_KEY e INNGEST_SIGNING_KEY na Vercel) — sem a chave, `/enviar` não enfileira (502).
+  4. Playwright: specs `*.e2e.spec.ts` escritos mas sem `playwright.config.ts` (login do painel) — ainda não rodaram.
+- Pontos em aberto: mensagem "pendente" por crash nunca é reenviada (sem rotina de recuperação); Haiku com confiança
+  < 0.85 só avisa; `concurrency: 1` do enviar-lote é global; sem rate limit no login.
+- Próximo (Fase 2): classificação de respostas ligada ao webhook (harness → fila humana), Conversas, lembrete de véspera,
+  dashboard. Antes: validar a Fase 1 com `npm run dev` + `WHATSAPP_FAKE=1` + Inngest dev (`npm run inngest:dev`).
