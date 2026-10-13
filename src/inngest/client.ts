@@ -28,6 +28,7 @@ export const Ev = {
   },
   enviarLote: {
     name: "lote/enviar" as const,
-    data: z.object({ loteId: z.string(), data: z.string() }),
+    // `data` (yyyy-MM-dd, fuso da clínica) restringe o envio aos agendamentos desse dia; sem ela, todos os futuros do lote
+    data: z.object({ loteId: z.string(), data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }),
   },
 };

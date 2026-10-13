@@ -23,7 +23,7 @@ describe("fakeSender não loga dados de paciente", () => {
     const saida = capturar();
     const body = "Olá Maria, sua consulta com Dra. Ana é amanhã às 14h";
     const r = await fakeSender.sendText(d, body);
-    expect(r.wamid).toMatch(/^fake\.\d+$/);
+    expect(r.wamid).toMatch(/^fake\.[0-9a-f-]{36}$/);
     const s = saida();
     expect(s).toContain("(11) 9****-5858");
     expect(s).toContain(`"tamanho":${body.length}`);
@@ -35,7 +35,7 @@ describe("fakeSender não loga dados de paciente", () => {
   it("sendTemplate: devolve wamid fake e não loga os parâmetros", async () => {
     const saida = capturar();
     const r = await fakeSender.sendTemplate(d, "confirmacao_consulta", ["Maria", "09/10", "Dra. Ana"]);
-    expect(r.wamid).toMatch(/^fake\.\d+$/);
+    expect(r.wamid).toMatch(/^fake\.[0-9a-f-]{36}$/);
     const s = saida();
     expect(s).toContain("confirmacao_consulta");
     expect(s).not.toContain("Maria");

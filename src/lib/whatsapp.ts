@@ -44,20 +44,27 @@ export const metaSender: Sender = {
  * Loga só telefone mascarado, nome do template e tamanhos — nunca o corpo nem os parâmetros
  * (que levam nome do paciente, data e médico).
  */
+import { randomUUID } from "node:crypto";
+
 export const fakeSender: Sender = {
   async sendText(d, body) {
-    const wamid = `fake.${Date.now()}`;
+    const wamid = `fake.${randomUUID()}`;
     console.log("[FAKE] texto", { para: mask(d.to), tamanho: body.length, wamid });
     return { wamid };
   },
   async sendTemplate(d, name, params) {
-    const wamid = `fake.${Date.now()}`;
+    const wamid = `fake.${randomUUID()}`;
     console.log("[FAKE] template", { template: name, para: mask(d.to), parametros: params.length, wamid });
     return { wamid };
   },
 };
 
 export const sender: Sender = process.env.WHATSAPP_FAKE === "1" ? fakeSender : metaSender;
+
+/** Mascara números de telefone dentro de um texto livre (ex.: mensagem de erro da Meta). */
+export function mascararNumerosNoTexto(texto: string) {
+  return texto.replace(/\+?\d[\d\s().-]{9,}\d/g, (m) => mask(m));
+}
 
 /** (11) 9****-1234 — padrão de exibição em toda a UI e em logs. */
 export function mask(e164: string) {
