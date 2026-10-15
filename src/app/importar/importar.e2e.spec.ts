@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // Fluxo principal: enviar arquivo -> triagem -> ir para a Central de Envios.
-// As rotas /api são simuladas; o painel exige login (defina PAINEL_STORAGE_STATE ou rode com a sessão aberta).
+// As rotas /api são simuladas; o login do painel é feito por e2e/auth.setup.ts (ver playwright.config.ts).
 test("importar agenda mostra a triagem e leva à Central de Envios", async ({ page }) => {
   await page.route("**/api/importar", (route) =>
     route.fulfill({
@@ -34,5 +34,5 @@ test("importar agenda mostra a triagem e leva à Central de Envios", async ({ pa
 test("rejeita formato inválido no cliente", async ({ page }) => {
   await page.goto("/importar");
   await page.setInputFiles("#arquivo", { name: "foto.png", mimeType: "image/png", buffer: Buffer.from("x") });
-  await expect(page.getByRole("alert")).toContainText("Formato não aceito");
+  await expect(page.getByRole("alert").filter({ hasText: "Formato não aceito" })).toBeVisible();
 });

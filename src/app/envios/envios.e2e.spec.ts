@@ -38,3 +38,21 @@ test("Central de Envios: estado vazio", async ({ page }) => {
   await expect(page.getByText("Nenhuma agenda importada ainda")).toBeVisible();
   await expect(page.getByRole("link", { name: "Importar agenda" }).last()).toBeVisible();
 });
+
+test("Central de Envios: lote travado em 'enviando' libera Reenviar pendentes", async ({ page }) => {
+  const travado = { ...lote, id: "lote-2", status: "enviando", enviandoDesde: new Date(Date.now() - 11 * 60_000).toISOString() };
+  await page.route("**/api/lotes", (route) => route.fulfill({ json: { ok: true, lotes: [travado] } }));
+  await page.route("**/api/lotes/lote-2", (route) => route.fulfill({ json: { ok: true, lote: travado, agendamentos: [] } }));
+  await page.goto("/envios?lote=lote-2");
+  await expect(page.getByText("parece travado")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reenviar pendentes" })).toBeEnabled();
+});
+
+test("Central de Envios: lote enviando recente mantém o botão desabilitado", async ({ page }) => {
+  const andando = { ...lote, id: "lote-3", status: "enviando", enviandoDesde: new Date().toISOString() };
+  await page.route("**/api/lotes", (route) => route.fulfill({ json: { ok: true, lotes: [andando] } }));
+  await page.route("**/api/lotes/lote-3", (route) => route.fulfill({ json: { ok: true, lote: andando, agendamentos: [] } }));
+  await page.goto("/envios?lote=lote-3");
+  await expect(page.getByText("Enviando as confirmações")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reenviar pendentes" })).toBeDisabled();
+});
