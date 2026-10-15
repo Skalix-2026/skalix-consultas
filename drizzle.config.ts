@@ -11,7 +11,7 @@ function urlMigracao(): string {
   const explicita = process.env.DATABASE_URL_MIGRACAO;
   if (explicita) return explicita;
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL não definida no .env");
+  if (!url) return ""; // db:generate não precisa de banco; push/studio falham com erro claro do próprio kit
   const u = new URL(url);
   if (u.hostname.endsWith(".pooler.supabase.com") && u.port === "6543") u.port = "5432";
   return u.toString();
