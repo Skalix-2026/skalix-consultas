@@ -8,6 +8,8 @@ export type Lote = {
   arquivoNome: string;
   criadoEm: string;
   status: StatusLote;
+  /** ISO de quando entrou em "enviando"; usado para detectar envio travado. */
+  enviandoDesde?: string | null;
   totalLinhas: number;
   linhasValidas: number;
   contagens: Contagem;

@@ -11,6 +11,8 @@ export const LoteSchema = z.object({
   linhasValidas: z.number(),
   status: StatusLoteSchema,
   criadoEm: z.string(),
+  /** ISO de quando entrou em "enviando" (null fora desse estado); a tela usa para detectar envio travado. */
+  enviandoDesde: z.string().nullable().optional(),
   /** Agendamentos do lote por status (inserido, enviado, confirmado...). */
   contagens: z.record(z.string(), z.number()),
 });

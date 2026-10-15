@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       ok: true,
       lote: {
         id: lote.id, arquivoNome: lote.arquivoNome, totalLinhas: lote.totalLinhas, linhasValidas: lote.linhasValidas,
-        status: lote.status, criadoEm: lote.criadoEm.toISOString(), contagens: lote.contagens,
+        status: lote.status, criadoEm: lote.criadoEm.toISOString(), enviandoDesde: lote.enviandoDesde?.toISOString() ?? null, contagens: lote.contagens,
       },
       agendamentos: ags.map((a) => ({
         id: a.id,

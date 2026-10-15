@@ -3,14 +3,13 @@ import { z } from "zod";
 import { inngest, Ev } from "@/inngest/client";
 import type { RespostaEnviarLote } from "@/lib/schemas-lotes";
 import { obterLote, trocarStatusLote } from "@/db/queries/lotes";
+import { ENVIO_PARADO_MS, envioTravado } from "@/lib/envio/travado";
 
 /**
  * Dispara o envio das confirmações de um lote. A rota NÃO envia nada: marca o lote como "enviando" e
  * enfileira o evento; quem envia (em blocos, com idempotência) é a função Inngest `enviarLote`.
  */
 
-/** Lote em "enviando" há mais que isso é considerado travado. */
-const ENVIO_PARADO_MS = 15 * 60 * 1000;
 
 const Id = z.uuid();
 const Body = z.object({
@@ -39,12 +38,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const lote = await obterLote(id.data);
   if (!lote) return responder({ ok: false, erro: "lote_nao_encontrado", mensagem: "Lote não encontrado." }, 404);
   const agora = Date.now();
-  const parado = lote.status === "enviando" && (!lote.enviandoDesde || agora - lote.enviandoDesde.getTime() > ENVIO_PARADO_MS);
+  const parado = envioTravado(lote.status, lote.enviandoDesde, agora);
   if (lote.status === "enviando" && !parado) {
     return responder({ ok: false, erro: "lote_em_envio", mensagem: "Este lote já está sendo enviado." }, 409);
   }
 
-  // "enviando" parado há > 15 min (função morreu) é reenviável; o envio é idempotente, só vai o que falta
+  // "enviando" parado há > 10 min (função morreu) é reenviável; o envio é idempotente, só vai o que falta
   const anterior = parado ? "importado" : lote.status;
   // troca atômica: dois cliques simultâneos não enfileiram duas vezes
   const trocou = parado

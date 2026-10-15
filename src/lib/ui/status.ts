@@ -51,11 +51,12 @@ export function explicarErro(codigo: number | null, mensagem: string | null): st
   return codigo != null ? `${texto} (código ${codigo})` : texto;
 }
 
-export function podeEnviar(status: string, inseridos: number): boolean {
-  return (status === "importado" || status === "conferido" || status === "concluido") && inseridos > 0;
+export function podeEnviar(status: string, inseridos: number, travado = false): boolean {
+  return (status === "importado" || status === "conferido" || status === "concluido" || (status === "enviando" && travado)) && inseridos > 0;
 }
 
 export function textoBotaoEnviar(status: string): string {
+  if (status === "enviando") return "Reenviar pendentes";
   return status === "concluido" ? "Reenviar pendentes" : "Enviar confirmações";
 }
 

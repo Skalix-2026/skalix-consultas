@@ -116,8 +116,8 @@ describe("POST /api/lotes/[id]/enviar", () => {
     expect(inngest.send).not.toHaveBeenCalled();
   });
 
-  it("enviando parado há mais de 15 min é reenviável (retomada atômica)", async () => {
-    vi.mocked(obterLote).mockResolvedValue(lote("enviando", new Date(Date.now() - 20 * 60_000)));
+  it("enviando parado há mais de 10 min é reenviável (retomada atômica)", async () => {
+    vi.mocked(obterLote).mockResolvedValue(lote("enviando", new Date(Date.now() - 11 * 60_000)));
     vi.mocked(trocarStatusLote).mockResolvedValue(true);
     vi.mocked(inngest.send).mockResolvedValue({ ids: [] } as never);
     const res = await enviar(post(), ctx(ID));
