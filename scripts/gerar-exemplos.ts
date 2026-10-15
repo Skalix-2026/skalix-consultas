@@ -8,7 +8,14 @@ import path from "node:path";
 import * as XLSX from "xlsx";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
-const DESTINO = path.resolve(__dirname, "..", "docs", "exemplos");
+/**
+ * Modo padrão: fixtures determinísticas (datas 13–15/10/2026) usadas pelos testes, em `docs/exemplos/`.
+ * Modo `--hoje`: mesmas agendas com datas relativas a hoje (amanhã, +2, +3 dias), em `docs/exemplos/hoje/`
+ * (ignorada pelo git) — para o teste manual não cair em "Data no passado".
+ */
+const MODO_HOJE = process.argv.includes("--hoje");
+const DESTINO = path.resolve(__dirname, "..", "docs", "exemplos", ...(MODO_HOJE ? ["hoje"] : []));
+let DATA_PDF = "13/10/2026";
 
 type Linha = { nome: string; telefone: string; atendimento: string; profissional: string; data: string; hora: string };
 
@@ -137,7 +144,7 @@ async function gerarPdfD(): Promise<Uint8Array> {
   let y = 800;
   page.drawText("Clínica Ortopédica Pinheiral", { x: 40, y, size: 16, font: bold, color: preto });
   y -= 18;
-  page.drawText("Agenda do dia 13/10/2026 - Unidade Centro (dados fictícios)", { x: 40, y, size: 10, font, color: preto });
+  page.drawText(`Agenda do dia ${DATA_PDF} - Unidade Centro (dados fictícios)`, { x: 40, y, size: 10, font, color: preto });
   y -= 28;
   const cols = [
     { titulo: "Hora", x: 40 },
@@ -160,7 +167,21 @@ async function gerarPdfD(): Promise<Uint8Array> {
   return pdf.save({ useObjectStreams: false });
 }
 
+function dataRelativa(diasAFrente: number): string {
+  const d = new Date(Date.now() + diasAFrente * 86_400_000);
+  const [dd, mm, yyyy] = d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }).split("/");
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+/** Troca as datas fixas 13/14/15-10-2026 por amanhã, +2 e +3 dias. */
+function relativizarDatas() {
+  const mapa: Record<string, string> = { "13/10/2026": dataRelativa(1), "14/10/2026": dataRelativa(2), "15/10/2026": dataRelativa(3) };
+  for (const l of [...A, ...B, ...C]) if (l.data in mapa) l.data = mapa[l.data];
+  DATA_PDF = mapa["13/10/2026"];
+}
+
 async function main() {
+  if (MODO_HOJE) relativizarDatas();
   mkdirSync(DESTINO, { recursive: true });
   writeFileSync(path.join(DESTINO, "agenda-clinica-a.xlsx"), gerarXlsxA());
   writeFileSync(path.join(DESTINO, "agenda-clinica-b.csv"), gerarCsvB());

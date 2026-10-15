@@ -14,3 +14,12 @@ Todos os arquivos desta pasta são **sintéticos**: nomes, clínicas e telefones
 Cada arquivo tem 15 linhas, 3 delas propositalmente ruins (telefone sem DDD, data/hora vazia, nome vazio).
 
 **Trocar por agenda real anonimizada** assim que uma clínica fornecer uma (ver `docs/decisoes.md`, 2026-10-08).
+
+## Datas: fixtures fixas x teste manual
+
+As fixtures versionadas têm datas **fixas (13–15/10/2026)** porque os testes dependem delas. Para testar manualmente
+(importar → enviar) sem cair em "Data no passado", gere uma cópia com datas relativas a hoje:
+
+```
+npm run exemplos:hoje   # grava em docs/exemplos/hoje/ (ignorada pelo git): amanhã, +2 e +3 dias
+```
