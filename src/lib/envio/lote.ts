@@ -27,6 +27,8 @@ export type DepsLote = DepsEnvio & {
   /** Dados de contato por ids, já filtrados (inserido + futuro). */
   carregarAgendamentos(ids: string[], agora: Date): Promise<AgendamentoEnvio[]>;
   definirStatusLote(loteId: string, status: "importado" | "concluido"): Promise<void>;
+  /** Chamado a cada bloco: renova `enviando_desde` para o lote em andamento não ser considerado travado. */
+  renovarEnvioLote(loteId: string): Promise<void>;
   env?: Record<string, string | undefined>;
 };
 
@@ -65,6 +67,7 @@ export async function rodarEnviarLote(
     const ids = plano.ids.slice(i * TAMANHO_BLOCO, (i + 1) * TAMANHO_BLOCO);
     if (i > 0) await step.sleep(`pausa-${i}`, PAUSA_ENTRE_BLOCOS);
     const r = await step.run(`bloco-${i}`, async () => {
+      await deps.renovarEnvioLote(entrada.loteId);
       const clinica = await deps.carregarClinicaDoLote(entrada.loteId);
       if (!clinica) throw new EnvioNaoConfiguradoError("lote ou clínica não encontrados");
       const token = env.WHATSAPP_FAKE === "1" ? "fake" : resolverToken(clinica.tokenRef, env)!;

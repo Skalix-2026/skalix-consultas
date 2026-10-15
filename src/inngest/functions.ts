@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { inngest, Ev } from "./client";
 import { mask, sender } from "@/lib/whatsapp";
 import { aplicarStatusMensagemReal } from "@/db/queries/status-mensagem";
-import { definirStatusLote, buscarClinicaDoLote, buscarIdsParaEnvio, buscarAgendamentosPorIds } from "@/db/queries/lotes";
+import { definirStatusLote, renovarEnvioLote, buscarClinicaDoLote, buscarIdsParaEnvio, buscarAgendamentosPorIds } from "@/db/queries/lotes";
 import { marcarAgendamentoEnviado, marcarMensagemEnviada, marcarMensagemFalhou, reservarMensagem } from "@/db/queries/mensagens";
 import { rodarEnviarLote, type DepsLote, type StepLike } from "@/lib/envio/lote";
 
@@ -64,6 +64,7 @@ const depsLote = (): DepsLote => ({
   listarIdsParaEnvio: buscarIdsParaEnvio,
   carregarAgendamentos: buscarAgendamentosPorIds,
   definirStatusLote,
+  renovarEnvioLote,
   reservarMensagem,
   marcarMensagemEnviada,
   marcarMensagemFalhou,

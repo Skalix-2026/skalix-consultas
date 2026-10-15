@@ -270,3 +270,9 @@ export async function buscarClinicaDoLote(loteId: string): Promise<ClinicaBasica
     .innerJoin(clinicas, eq(clinicas.id, lotes.clinicaId)).where(eq(lotes.id, loteId)).limit(1);
   return row ?? null;
 }
+
+/** Heartbeat do envio: renova `enviando_desde` enquanto o lote está em "enviando" (lote grande não vira "travado"). */
+export async function renovarEnvioLote(id: string): Promise<void> {
+  const db = await getDb();
+  await db.update(lotes).set({ enviandoDesde: new Date() }).where(and(eq(lotes.id, id), eq(lotes.status, "enviando")));
+}

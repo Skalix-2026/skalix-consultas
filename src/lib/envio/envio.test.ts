@@ -169,6 +169,7 @@ describe("rodarEnviarLote (função Inngest)", () => {
       listarIdsParaEnvio: vi.fn(async () => ags.map((a) => a.id)),
       carregarAgendamentos: vi.fn(async (ids: string[]) => ags.filter((a) => ids.includes(a.id))),
       definirStatusLote: vi.fn(async () => {}),
+      renovarEnvioLote: vi.fn(async () => {}),
     };
     return { d, m };
   }
@@ -192,6 +193,8 @@ describe("rodarEnviarLote (função Inngest)", () => {
     const ags = Array.from({ length: 25 }, (_, i) => ag(i + 1));
     const { d } = depsLote(ags, fakeSender);
     await rodarEnviarLote(passos, { loteId: "l1" }, d);
+    expect(d.renovarEnvioLote).toHaveBeenCalledTimes(3); // heartbeat a cada bloco
+    expect(d.renovarEnvioLote).toHaveBeenCalledWith("l1");
     expect(passos.sleeps).toEqual(["pausa-1", "pausa-2"]);
   });
 
