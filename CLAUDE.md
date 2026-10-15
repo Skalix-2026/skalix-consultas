@@ -51,7 +51,7 @@ apaga dados de pacientes sem aprovação explícita do Ti.
 
 ## Comandos
 - `npm run dev` — sobe o app local.
-- `npm run typecheck` / `npm test` / `npm run eval` / `npm run db:push` / `npm run db:studio`.
+- `npm run typecheck` / `npm test` / `npm run test:e2e` / `npm run eval` / `npm run db:push` / `npm run db:studio`.
 - Webhook local: `npx ngrok http 3000` e configurar a URL em Meta → WhatsApp → Configuração.
 
 ## Estado atual (atualizar ao fim de cada sessão)
@@ -66,14 +66,25 @@ apaga dados de pacientes sem aprovação explícita do Ti.
 - 13 out: **Fase 1 implementada (etapas 1–9), 227 testes e typecheck verdes, revisada pelo revisor.** Importação
   (`/importar` → `POST /api/importar`, cache por hash), Central de Envios (`/envios`, `/api/lotes*`), função Inngest
   `enviar-lote` idempotente (FakeSender com `WHATSAPP_FAKE=1`) e status via webhook sem regressão. Decisões em decisoes.md.
-- Commits das etapas 5–9 estão SÓ LOCAIS (sem push de propósito): o push dispara deploy na Vercel e o código novo
-  depende de coluna nova (`lotes.enviando_desde`).
-- **Pendências do Ti antes do push/teste ponta a ponta:**
-  1. `DATABASE_URL` do `.env` local falha ("tenant/user not found" no pooler Supabase): corrigir/despausar o projeto.
-  2. `npm run db:push` (coluna `lotes.enviando_desde`) e `npm run db:seed` (cria a clínica; opcional `CLINICA_ID`).
-  3. Configurar Inngest (INNGEST_EVENT_KEY e INNGEST_SIGNING_KEY na Vercel) — sem a chave, `/enviar` não enfileira (502).
-  4. Playwright: specs `*.e2e.spec.ts` escritos mas sem `playwright.config.ts` (login do painel) — ainda não rodaram.
+- 14 out: **Fase 1 concluída (etapa 10).** Infra fechada: deploy em produção, Inngest sincronizado, banco com
+  `clinicas.fuso` e `lotes.enviando_desde`, seed rodado; importação e envio FAKE validados ponta a ponta.
+  Fechamento: (a) `npm run db:push` corrigido — o drizzle-kit falhava no pooler Supabase em modo transação (6543);
+  `drizzle.config.ts` agora usa o modo sessão (5432), ver decisoes.md; (b) lote travado em "enviando" há > 10 min
+  libera "Reenviar pendentes" (`src/lib/envio/travado.ts`); (c) `npm run exemplos:hoje` gera agendas com datas
+  relativas (`docs/exemplos/hoje/`, fora do git); (d) Playwright configurado (`playwright.config.ts`, login via
+  `PAINEL_SENHA` em `e2e/auth.setup.ts`, `npm run test:e2e`): 7 testes E2E verdes. 231 testes Vitest e typecheck verdes.
+- Repositório agora é **público**: nunca versionar segredos nem dados reais (`.env` e `.auth/` ficam no .gitignore).
+- **Fase 2 (IA e agenda) começa em 15 out:** classificação de respostas ligada ao webhook (harness → fila humana),
+  Conversas, Agenda em calendário, eval ≥ 97% em confirmou/cancelou; lembrete de véspera e dashboard seguem a Fase 3.
 - Pontos em aberto: mensagem "pendente" por crash nunca é reenviada (sem rotina de recuperação); Haiku com confiança
   < 0.85 só avisa; `concurrency: 1` do enviar-lote é global; sem rate limit no login.
-- Próximo (Fase 2): classificação de respostas ligada ao webhook (harness → fila humana), Conversas, lembrete de véspera,
-  dashboard. Antes: validar a Fase 1 com `npm run dev` + `WHATSAPP_FAKE=1` + Inngest dev (`npm run inngest:dev`).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
