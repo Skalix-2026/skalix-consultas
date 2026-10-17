@@ -74,10 +74,20 @@ apaga dados de pacientes sem aprovação explícita do Ti.
   relativas (`docs/exemplos/hoje/`, fora do git); (d) Playwright configurado (`playwright.config.ts`, login via
   `PAINEL_SENHA` em `e2e/auth.setup.ts`, `npm run test:e2e`): 7 testes E2E verdes. 231 testes Vitest e typecheck verdes.
 - Repositório agora é **público**: nunca versionar segredos nem dados reais (`.env` e `.auth/` ficam no .gitignore).
-- **Fase 2 (IA e agenda) começa em 15 out:** classificação de respostas ligada ao webhook (harness → fila humana),
-  Conversas, Agenda em calendário, eval ≥ 97% em confirmou/cancelou; lembrete de véspera e dashboard seguem a Fase 3.
-- Pontos em aberto: mensagem "pendente" por crash nunca é reenviada (sem rotina de recuperação); Haiku com confiança
-  < 0.85 só avisa; `concurrency: 1` do enviar-lote é global; sem rate limit no login.
+- 16 out: **Fase 2 implementada (etapas 1–5), aguardando 3 decisões do Ti.** No main, revisada pelo revisor (aprovado com
+  ressalvas), 331 testes Vitest, typecheck e 18 E2E verdes. `processar-resposta` (Inngest) classifica com Haiku, grava em
+  `respostas` e atualiza o status (confirmado/cancelado) ou `excecao`; RAG leve (`src/ai/rag`); `/conversas` e `/agenda`;
+  cron `recuperar-pendentes` (pendente > 15 min → falhou; reenvio manual só sem wamid). `db:push` aplicado: enum `excecao`,
+  `mensagens.resposta_a_wamid`, `respostas.origem` e índice parcial `mensagens_idempotencia` (WHERE tipo <> 'texto_livre';
+  o drizzle-kit NÃO detecta mudança de WHERE em índice existente — exige SQL manual, ver decisoes.md).
+- **Pendências para fechar a Fase 2:** (a) `npm run eval` NÃO rodou: a chave da Anthropic não tem workspace (a API pede o
+  header `anthropic-workspace-id`); a meta ≥ 97% em confirmou/cancelou segue sem medição e o prompt mudou na etapa 2;
+  (b) LGPD: `respostas.texto` guarda a mensagem do paciente na íntegra, sem retenção definida — decisão do Ti;
+  (c) `resposta_ao_paciente` do modelo vai ao paciente sem filtro (risco de injeção) — decidir texto fixo por intenção;
+  (d) smoke manual no banco (reabrir falha com 2ª reserva nula, wamid repetido) e tempo webhook→status com Haiku real (< 10 s).
+- Riscos aceitos para a Fase 3: reenvio manual pode duplicar; retry pode duplicar a resposta automática; janela de 24 h usa
+  a hora do processamento e não a da Meta; agenda trunca em 1000 linhas; paciente já confirmado que cancela cai na fila humana.
+- Pontos em aberto: Haiku com confiança < 0.85 só avisa; `concurrency: 1` do enviar-lote é global; sem rate limit no login.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
