@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export function CabecalhoPainel({ atual }: { atual: "importar" | "envios" | "conversas" }) {
+export function CabecalhoPainel({ atual }: { atual: "importar" | "envios" | "conversas" | "agenda" }) {
   const item = (href: string, texto: string, ativo: boolean) => (
     <Link
       href={href}
@@ -19,6 +19,7 @@ export function CabecalhoPainel({ atual }: { atual: "importar" | "envios" | "con
         {item("/importar", "Importar agenda", atual === "importar")}
         {item("/envios", "Central de Envios", atual === "envios")}
         {item("/conversas", "Conversas", atual === "conversas")}
+        {item("/agenda", "Agenda", atual === "agenda")}
       </nav>
     </header>
   );
