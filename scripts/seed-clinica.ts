@@ -5,10 +5,17 @@
  * Lê do .env: WHATSAPP_PHONE_NUMBER_ID e WHATSAPP_WABA_ID (obrigatórios) e, opcionais,
  * SEED_CLINICA_NOME e SEED_CLINICA_FUSO (padrão America/Sao_Paulo). O token NÃO é gravado:
  * `token_ref` guarda só o nome da variável (WHATSAPP_TOKEN).
+ * Opcional: SEED_REGRAS_EXEMPLO=1 grava regras FICTÍCIAS (prazo de 24 h, preparo de ultrassom) na clínica,
+ * só se ela ainda não tiver regras (idempotente; nunca sobrescreve). Não use com clínica real.
  * Depois de rodar, opcionalmente defina CLINICA_ID=<id impresso> no .env.
  */
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { eq, isNull, and } from "drizzle-orm";
+
+const REGRAS_EXEMPLO = {
+  prazoCancelamentoHoras: 24,
+  preparos: { ultrassom: "Beber 1 litro de água uma hora antes e não urinar." },
+};
 
 async function main() {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -23,7 +30,12 @@ async function main() {
   const [existente] = await db.select({ id: clinicas.id, nome: clinicas.nome }).from(clinicas)
     .where(eq(clinicas.phoneNumberId, phoneNumberId)).limit(1);
   if (existente) {
-    console.log(`Clínica já existe: ${existente.nome} (id ${existente.id}). Nada a fazer.`);
+    console.log(`Clínica já existe: ${existente.nome} (id ${existente.id}).`);
+    if (process.env.SEED_REGRAS_EXEMPLO === "1") {
+      const r = await db.update(clinicas).set({ regras: REGRAS_EXEMPLO })
+        .where(and(eq(clinicas.id, existente.id), isNull(clinicas.regras))).returning({ id: clinicas.id });
+      console.log(r.length ? "Regras de exemplo (fictícias) gravadas." : "Clínica já tem regras; nada a fazer.");
+    }
     process.exit(0);
   }
 
@@ -33,6 +45,7 @@ async function main() {
     phoneNumberId,
     tokenRef: "WHATSAPP_TOKEN",
     fuso: process.env.SEED_CLINICA_FUSO ?? "America/Sao_Paulo",
+    ...(process.env.SEED_REGRAS_EXEMPLO === "1" ? { regras: REGRAS_EXEMPLO } : {}),
   }).returning({ id: clinicas.id, nome: clinicas.nome });
   console.log(`Clínica criada: ${nova.nome} (id ${nova.id}).`);
   process.exit(0);

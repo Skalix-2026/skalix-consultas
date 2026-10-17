@@ -3,6 +3,7 @@ import { mask, mascararNumerosNoTexto, type Sender } from "@/lib/whatsapp";
 import { variantesTelefone } from "@/lib/telefone";
 import { formatarDataHora, resolverToken } from "@/lib/envio/confirmacao";
 import type { StepLike } from "@/lib/envio/lote";
+import { montarContexto, type ContextoClinica, type LinhaConhecimento, type RegrasClinica } from "@/ai/rag/contexto-clinica";
 
 /**
  * Resposta do paciente → status do agendamento. Lógica pura com dependências injetadas (mesmo padrão
@@ -24,6 +25,7 @@ import type { StepLike } from "@/lib/envio/lote";
 export type PacienteLocalizado = {
   pacienteId: string; nome: string;
   clinicaId: string; clinicaNome: string; fuso: string; phoneNumberId: string; tokenRef: string | null;
+  regras?: RegrasClinica | null;
 };
 
 export type AgendamentoAberto = { id: string; atendimento: string; dataHora: Date; status: string };
@@ -58,6 +60,8 @@ export type DepsResposta = {
   buscarTokenRef(phoneNumberId: string): Promise<string | null>;
   /** Sem paciente: nada a gravar em `respostas` (pacienteId é NOT NULL); fica só o aviso no evento bruto. */
   registrarSemPaciente(eventoId: string | undefined): Promise<void>;
+  /** Conhecimento da clínica (+ globais) para o RAG leve; falha aqui não derruba a classificação. */
+  buscarConhecimento(clinicaId: string): Promise<LinhaConhecimento[]>;
   classificar(entrada: EntradaClassificacao): Promise<Saida>;
   /** Grava classificação na resposta + status do agendamento (transação). */
   gravarDecisao(d: DecisaoGravada): Promise<void>;
@@ -154,15 +158,24 @@ export async function rodarProcessarResposta(
       return { resultado: "excecao", agendamentoId: ag.id, enviada: false };
     }
 
-    // IA: só primeiro nome, atendimento, data legível e nome da clínica (regras/exemplos: Etapa 2).
+    // Contexto da clínica (RAG leve). Falha na busca: só o nome do erro no log e segue com contexto vazio.
+    let contexto: ContextoClinica = { regras: [], exemplos: [] };
+    try {
+      const conhecimento = await deps.buscarConhecimento(paciente.clinicaId);
+      contexto = montarContexto({ regras: paciente.regras, conhecimento, atendimento: ag.atendimento });
+    } catch (e) {
+      console.warn("[resposta] contexto da clínica indisponível; seguindo sem regras/exemplos", { ...log, erro: (e as Error)?.name ?? "Error" });
+    }
+
+    // IA: só primeiro nome, atendimento, data legível, nome da clínica e o contexto (regras/exemplos).
     const saida = await deps.classificar({
       textoPaciente: texto,
       primeiroNome: primeiroNomeParaIA(paciente.nome),
       atendimento: ag.atendimento,
       dataHoraLegivel: formatarDataHora(ag.dataHora, paciente.fuso),
       clinicaNome: paciente.clinicaNome,
-      regras: [],
-      exemplos: [],
+      regras: contexto.regras,
+      exemplos: contexto.exemplos,
       agendamentoId: ag.id,
     });
 

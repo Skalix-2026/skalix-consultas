@@ -5,6 +5,7 @@ import { aplicarStatusMensagemReal } from "@/db/queries/status-mensagem";
 import { definirStatusLote, renovarEnvioLote, buscarClinicaDoLote, buscarIdsParaEnvio, buscarAgendamentosPorIds } from "@/db/queries/lotes";
 import { marcarAgendamentoEnviado, marcarMensagemEnviada, marcarMensagemFalhou, reservarMensagem } from "@/db/queries/mensagens";
 import { rodarEnviarLote, type DepsLote, type StepLike } from "@/lib/envio/lote";
+import { buscarConhecimento } from "@/db/queries/conhecimento";
 import { classificarResposta } from "@/ai/harness/classificar-resposta";
 import { rodarProcessarResposta, type DepsResposta } from "@/lib/resposta/processar";
 import {
@@ -43,6 +44,7 @@ const depsResposta = (): DepsResposta => ({
   listarAgendamentosAbertos,
   registrarResposta,
   registrarSemPaciente,
+  buscarConhecimento,
   classificar: (entrada) => classificarResposta(entrada),
   gravarDecisao,
   reservarRespostaAutomatica,

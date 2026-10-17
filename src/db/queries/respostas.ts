@@ -17,6 +17,7 @@ export async function localizarPaciente(phoneNumberId: string, telefones: string
       pacienteId: pacientes.id, nome: pacientes.nome,
       clinicaId: clinicas.id, clinicaNome: clinicas.nome, fuso: clinicas.fuso,
       phoneNumberId: clinicas.phoneNumberId, tokenRef: clinicas.tokenRef,
+      regras: clinicas.regras,
     })
     .from(pacientes)
     .innerJoin(clinicas, eq(clinicas.id, pacientes.clinicaId))

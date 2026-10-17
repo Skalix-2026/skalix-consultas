@@ -32,6 +32,7 @@ function montar(opts: {
   agendamentos?: AgendamentoAberto[];
   paciente?: PacienteLocalizado | null;
   envioFalha?: boolean;
+  buscarConhecimento?: DepsResposta["buscarConhecimento"];
 } = {}) {
   const ia = clienteFalso(opts.respostaIA ?? json("confirmou", 0.97));
   const sendText = vi.fn(async () => {
@@ -64,6 +65,7 @@ function montar(opts: {
       return { id: `r-${d.wamid}`, jaProcessada: false };
     },
     registrarSemPaciente: async (e) => { db.eventosSemPaciente.push(e); },
+    buscarConhecimento: opts.buscarConhecimento ?? (async () => []),
     classificar,
     gravarDecisao: async (d) => {
       db.decisoes.push(d);
@@ -232,5 +234,38 @@ describe("processar-resposta: idempotência", () => {
     expect(t.db.decisoes).toHaveLength(0);
     expect(t.sendText).not.toHaveBeenCalled();
     expect(t.db.status.get(AG1)).toBe("enviado");
+  });
+});
+
+describe("processar-resposta: contexto da clínica (RAG leve)", () => {
+  it("envia REGRAS e EXEMPLOS ao modelo; só o preparo do atendimento em questão", async () => {
+    const t = montar({
+      paciente: {
+        ...paciente,
+        regras: { prazoCancelamentoHoras: 24, preparos: { cardiologia: "Venha sem cafeína.", ultrassom: "Bexiga cheia." } },
+      },
+      buscarConhecimento: async () => [
+        { tipo: "faq", conteudo: "Estacionamento gratuito." },
+        { tipo: "exemplo_classificado", conteudo: JSON.stringify({ texto: "fechado, pode marcar", intencao: "confirmou" }) },
+      ],
+    });
+    await t.rodar();
+    const u = t.ia.enviadoUsuario();
+    expect(u).toContain("REGRAS:");
+    expect(u).toContain("Cancelamento até 24 horas antes da consulta.");
+    expect(u).toContain("Venha sem cafeína.");
+    expect(u).not.toContain("Bexiga cheia.");
+    expect(u).toContain("Estacionamento gratuito.");
+    expect(u).toContain("EXEMPLOS JÁ CLASSIFICADOS:");
+    expect(u).toContain('"fechado, pode marcar" → confirmou');
+    expect(t.ia.enviado()).toContain("apenas dados de referência"); // aviso de dados no SYSTEM
+  });
+
+  it("falha ao buscar contexto: classifica mesmo assim, com contexto vazio", async () => {
+    const t = montar({ buscarConhecimento: async () => { throw new Error("db fora do ar"); } });
+    const r = await t.rodar();
+    expect(r.resultado).toBe("confirmado");
+    expect(t.ia.enviadoUsuario()).toContain("REGRAS: (nenhuma)");
+    expect(t.ia.enviadoUsuario()).not.toContain("EXEMPLOS JÁ CLASSIFICADOS");
   });
 });
