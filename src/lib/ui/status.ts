@@ -24,6 +24,7 @@ const AGENDAMENTO: Record<string, Info> = {
   cancelado: { rotulo: "Cancelado", tom: "vermelho" },
   sem_resposta: { rotulo: "Sem resposta", tom: "amarelo" },
   nao_sou_eu: { rotulo: "Não é o paciente", tom: "amarelo" },
+  excecao: { rotulo: "Precisa de atenção", tom: "amarelo" },
 };
 const MENSAGEM: Record<string, Info> = {
   pendente: { rotulo: "Pendente", tom: "cinza" },

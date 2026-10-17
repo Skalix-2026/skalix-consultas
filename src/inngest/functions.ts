@@ -5,6 +5,12 @@ import { aplicarStatusMensagemReal } from "@/db/queries/status-mensagem";
 import { definirStatusLote, renovarEnvioLote, buscarClinicaDoLote, buscarIdsParaEnvio, buscarAgendamentosPorIds } from "@/db/queries/lotes";
 import { marcarAgendamentoEnviado, marcarMensagemEnviada, marcarMensagemFalhou, reservarMensagem } from "@/db/queries/mensagens";
 import { rodarEnviarLote, type DepsLote, type StepLike } from "@/lib/envio/lote";
+import { classificarResposta } from "@/ai/harness/classificar-resposta";
+import { rodarProcessarResposta, type DepsResposta } from "@/lib/resposta/processar";
+import {
+  localizarPaciente, buscarTokenRef, listarAgendamentosAbertos, registrarResposta, registrarSemPaciente, gravarDecisao,
+  reservarRespostaAutomatica, carregarCorpoPendente, marcarFalhaClassificacao,
+} from "@/db/queries/respostas";
 
 /*
  * Logs: só ids técnicos (wamid, status, loteId), telefone mascarado e tamanho do texto.
@@ -28,16 +34,42 @@ export function logEnviarLote(data: z.infer<typeof Ev.enviarLote.data>) {
   return { loteId: data.loteId };
 }
 
-/** Fase 0: só registra. Fase 2: chama o harness de classificação e atualiza o agendamento. */
-export const processarMensagemRecebida = inngest.createFunction(
-  { id: "processar-mensagem-recebida", retries: 3, triggers: [{ event: Ev.mensagemRecebida.name }] },
+/** Dependências reais do processamento da resposta (banco + IA + sender; FakeSender com WHATSAPP_FAKE=1). */
+const depsResposta = (): DepsResposta => ({
+  sender,
+  agora: () => new Date(),
+  localizarPaciente,
+  buscarTokenRef,
+  listarAgendamentosAbertos,
+  registrarResposta,
+  registrarSemPaciente,
+  classificar: (entrada) => classificarResposta(entrada),
+  gravarDecisao,
+  reservarRespostaAutomatica,
+  carregarCorpoPendente,
+  marcarMensagemEnviada,
+  marcarMensagemFalhou,
+});
+
+/**
+ * Resposta do paciente → status do agendamento (Haiku classifica; o código decide). Idempotente por wamid:
+ * retry do Inngest ou reentrega da Meta não reclassifica nem reenvia (ver src/lib/resposta/processar.ts).
+ */
+export const processarResposta = inngest.createFunction(
+  {
+    id: "processar-resposta", retries: 3, triggers: [{ event: Ev.mensagemRecebida.name }],
+    // IA fora do ar / saída inválida após todos os retries: resposta e agendamento vão para a fila humana
+    onFailure: async ({ event }) => {
+      const original = Ev.mensagemRecebida.data.safeParse((event.data as { event?: { data?: unknown } }).event?.data);
+      if (!original.success) return;
+      await marcarFalhaClassificacao(original.data.wamid);
+      console.error("[inngest] classificação falhou; resposta enviada à fila humana", { wamid: original.data.wamid });
+    },
+  },
   async ({ event, step }) => {
     const data = Ev.mensagemRecebida.data.parse(event.data);
-    await step.run("log", async () => {
-      console.log("[inngest] mensagem recebida", logMensagemRecebida(data));
-    });
-    // TODO Fase 2: localizar paciente/agendamento → classificarResposta() → atualizar status ou fila humana
-    return { ok: true };
+    console.log("[inngest] mensagem recebida", logMensagemRecebida(data));
+    return rodarProcessarResposta({ run: (id, fn) => step.run(id, fn) as Promise<never> }, data, depsResposta());
   },
 );
 
@@ -97,4 +129,4 @@ export const enviarLote = inngest.createFunction(
   },
 );
 
-export const functions = [processarMensagemRecebida, atualizarStatusMensagem, enviarLote];
+export const functions = [processarResposta, atualizarStatusMensagem, enviarLote];

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { agendamentos, mensagens } from "@/db/schema";
 
 /** Import tardio: evita abrir conexão em testes/ambientes sem DATABASE_URL. */
@@ -15,7 +15,8 @@ export async function reservarMensagem(agendamentoId: string, tipo: "confirmacao
   const db = await getDb();
   const rows = await db.insert(mensagens)
     .values({ agendamentoId, tipo, status: "pendente" })
-    .onConflictDoNothing({ target: [mensagens.agendamentoId, mensagens.tipo] })
+    // índice único parcial (tipo <> texto_livre): o ON CONFLICT precisa repetir o predicado
+    .onConflictDoNothing({ target: [mensagens.agendamentoId, mensagens.tipo], where: sql`tipo <> 'texto_livre'` })
     .returning({ id: mensagens.id });
   return rows[0]?.id ?? null;
 }

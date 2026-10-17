@@ -1,10 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable, uuid, text, timestamp, integer, numeric, jsonb, pgEnum, uniqueIndex, index,
 } from "drizzle-orm/pg-core";
 
 // ---- Enums --------------------------------------------------------------
 export const statusAgendamento = pgEnum("status_agendamento", [
-  "inserido", "enviado", "respondido", "confirmado", "cancelado", "sem_resposta", "nao_sou_eu",
+  "inserido", "enviado", "respondido", "confirmado", "cancelado", "sem_resposta", "nao_sou_eu", "excecao",
 ]);
 export const tipoMensagem = pgEnum("tipo_mensagem", [
   "confirmacao", "lembrete_vespera", "cobranca_resposta", "texto_livre",
@@ -80,12 +81,18 @@ export const mensagens = pgTable("mensagens", {
   wamid: text("wamid"),                         // id da Meta
   templateNome: text("template_nome"),
   corpo: text("corpo"),
+  respostaAWamid: text("resposta_a_wamid"),     // wamid da resposta do paciente que gerou esta resposta automática
   status: statusMensagem("status").default("pendente").notNull(),
   erroCodigo: integer("erro_codigo"),
   erroMensagem: text("erro_mensagem"),
   enviadaEm: timestamp("enviada_em"),
   atualizadaEm: timestamp("atualizada_em").defaultNow().notNull(),
-}, (t) => [uniqueIndex("mensagens_idempotencia").on(t.agendamentoId, t.tipo)]);
+}, (t) => [
+  // texto_livre pode repetir por agendamento (respostas humanas); os demais tipos: 1 por agendamento
+  uniqueIndex("mensagens_idempotencia").on(t.agendamentoId, t.tipo).where(sql`tipo <> 'texto_livre'`),
+  // resposta automática: no máximo 1 por resposta do paciente (idempotência do retry)
+  uniqueIndex("mensagens_resposta_a_wamid").on(t.respostaAWamid).where(sql`resposta_a_wamid IS NOT NULL`),
+]);
 
 // ---- Respostas do paciente + classificação da IA -------------------------
 export const respostas = pgTable("respostas", {
@@ -98,6 +105,7 @@ export const respostas = pgTable("respostas", {
   confianca: numeric("confianca", { precision: 4, scale: 3 }),
   motivo: text("motivo"),
   classificadaPor: text("classificada_por"),     // "haiku" | "sonnet" | "humano"
+  origem: text("origem").default("paciente").notNull(), // "paciente" | "humano" (ações humanas da Etapa 3)
   precisaHumano: integer("precisa_humano").default(0).notNull(), // 0/1
   resolvidaEm: timestamp("resolvida_em"),
   recebidaEm: timestamp("recebida_em").defaultNow().notNull(),

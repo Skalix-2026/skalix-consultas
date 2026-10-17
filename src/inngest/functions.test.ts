@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { logMensagemRecebida, logStatusAtualizado, logEnviarLote } from "./functions";
+import { logMensagemRecebida, logStatusAtualizado, logEnviarLote, functions, processarResposta } from "./functions";
 
 const TEXTO = "Sim, confirmo a consulta da Maria Souza com a Dra. Ana";
 
@@ -26,5 +26,13 @@ describe("logs do Inngest sem dados de paciente", () => {
 
   it("lote: só loteId", () => {
     expect(logEnviarLote({ loteId: "lote-1", data: "2026-10-09" })).toEqual({ loteId: "lote-1" });
+  });
+});
+
+describe("funções registradas", () => {
+  it("processar-resposta substitui o antigo processar-mensagem-recebida", () => {
+    expect(functions).toContain(processarResposta);
+    expect(processarResposta.id()).toBe("processar-resposta");
+    expect(functions.map((f) => f.id())).not.toContain("processar-mensagem-recebida");
   });
 });

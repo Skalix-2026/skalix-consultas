@@ -36,3 +36,21 @@ export function normalizarTelefone(bruto: string): string | null {
   if (numero.length === 8 && !/^[2-5]/.test(numero)) return null;
   return `55${local}`;
 }
+
+/**
+ * Formas equivalentes de um telefone recebido da Meta para buscar no banco: a Meta às vezes entrega
+ * celulares brasileiros sem o nono dígito (12 dígitos) e a agenda da clínica costuma tê-lo (13).
+ * O primeiro item é sempre o número recebido (só dígitos).
+ */
+export function variantesTelefone(bruto: string): string[] {
+  const d = bruto.replace(/\D/g, "");
+  const out = [d];
+  const normal = normalizarTelefone(d);
+  if (normal && normal !== d) out.push(normal);
+  if (d.startsWith("55")) {
+    const ddd = d.slice(2, 4), num = d.slice(4);
+    if (d.length === 13 && num.startsWith("9")) out.push(`55${ddd}${num.slice(1)}`);
+    if (d.length === 12 && /^[6-9]/.test(num)) out.push(`55${ddd}9${num}`);
+  }
+  return [...new Set(out)];
+}
