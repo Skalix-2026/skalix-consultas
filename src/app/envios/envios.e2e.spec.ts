@@ -56,3 +56,13 @@ test("Central de Envios: lote enviando recente mantém o botão desabilitado", a
   await expect(page.getByText("Enviando as confirmações")).toBeVisible();
   await expect(page.getByRole("button", { name: "Reenviar pendentes" })).toBeDisabled();
 });
+
+test("Central de Envios: lote concluído com falhas mostra a contagem e 'Reenviar pendentes e falhas'", async ({ page }) => {
+  const concluido = { ...lote, id: "lote-4", status: "concluido", contagens: { inserido: 1, enviado: 1 } };
+  const falhou = { id: "a1", nome: "Maria S.", telefone: "(11) 9****-1234", atendimento: "Consulta", profissional: null, dataHora: "2026-10-14T12:30:00Z", status: "inserido", mensagemStatus: "falhou", erroCodigo: null, erroMensagem: "Envio interrompido (sem confirmação); reenvio manual" };
+  await page.route("**/api/lotes", (route) => route.fulfill({ json: { ok: true, lotes: [concluido] } }));
+  await page.route("**/api/lotes/lote-4", (route) => route.fulfill({ json: { ok: true, lote: concluido, agendamentos: [falhou] } }));
+  await page.goto("/envios?lote=lote-4");
+  await expect(page.getByText("Falhas de envio:")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reenviar pendentes e falhas" })).toBeEnabled();
+});

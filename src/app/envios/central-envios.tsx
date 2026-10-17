@@ -181,6 +181,8 @@ function DetalheLote({ id, aoMudar }: { id: string; aoMudar: () => void }) {
   const info = infoLote(lote.status);
   const pendentes = lote.contagens.inserido ?? 0;
   const travado = envioTravado(lote.status, lote.enviandoDesde);
+  // falha sem wamid segue "inserido" e o reenvio manual a reabre; falha com wamid já é "enviado" e não volta
+  const falhas = ags.filter((a) => a.mensagemStatus === "falhou").length;
   const habilitado = podeEnviar(lote.status, pendentes, travado);
   const c: Record<string, number> = { inserido: 0, enviado: 0, confirmado: 0, cancelado: 0, ...lote.contagens };
   const resumo: [string, number][] = [
@@ -189,6 +191,7 @@ function DetalheLote({ id, aoMudar }: { id: string; aoMudar: () => void }) {
     ["Confirmados", c.confirmado],
     ["Cancelados", c.cancelado],
     ["Sem resposta", c.sem_resposta],
+    ["Falhas de envio", falhas],
   ];
 
   return (
@@ -207,7 +210,7 @@ function DetalheLote({ id, aoMudar }: { id: string; aoMudar: () => void }) {
           onClick={() => setConfirmando(true)}
           className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          {textoBotaoEnviar(lote.status)}
+          {textoBotaoEnviar(lote.status, falhas)}
         </button>
       </div>
 

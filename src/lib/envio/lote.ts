@@ -5,6 +5,9 @@ import { enviarBloco, intervaloDoDia, resolverToken, type AgendamentoEnvio, type
  * Orquestração do envio de um lote, desacoplada do Inngest/banco para ser testável:
  * `step` só precisa de run/sleep e as consultas entram por `DepsLote`.
  *
+ * Todo disparo vem de uma pessoa (botão da Central de Envios), então também reabre mensagens `falhou` sem wamid
+ * (ver `reservarMensagem`); a reabertura é atômica e idempotente: reexecutar nunca envia duas vezes.
+ *
  * LGPD: os `step.run` devolvem só ids e contagens — o estado dos steps fica guardado no Inngest,
  * então nome/telefone são lidos de novo do banco dentro de cada bloco e nunca saem dele.
  */
@@ -58,8 +61,10 @@ export async function rodarEnviarLote(
     const agora = deps.agora();
     const intervalo = entrada.data ? intervaloDoDia(entrada.data, clinica.fuso) : {};
     const ids = await deps.listarIdsParaEnvio(entrada.loteId, { agora, ...intervalo });
-    return { ids };
+    // corte do reenvio manual: só reabre `falhou` anterior a este disparo (falha deste mesmo run não volta)
+    return { ids, corte: agora.toISOString() };
   });
+  const opcoes = { reabrirFalhasAntesDe: new Date(plano.corte) };
 
   const total: ResultadoLote = { enviadas: 0, puladas: 0, falhas: 0, total: plano.ids.length };
 
@@ -72,7 +77,7 @@ export async function rodarEnviarLote(
       if (!clinica) throw new EnvioNaoConfiguradoError("lote ou clínica não encontrados");
       const token = env.WHATSAPP_FAKE === "1" ? "fake" : resolverToken(clinica.tokenRef, env)!;
       const ags = await deps.carregarAgendamentos(ids, deps.agora());
-      return enviarBloco(deps, ags, clinica, token);
+      return enviarBloco(deps, ags, clinica, token, opcoes);
     });
     total.enviadas += r.enviadas;
     total.puladas += r.puladas;

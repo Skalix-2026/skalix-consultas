@@ -3,7 +3,8 @@ import { inngest, Ev } from "./client";
 import { mask, sender } from "@/lib/whatsapp";
 import { aplicarStatusMensagemReal } from "@/db/queries/status-mensagem";
 import { definirStatusLote, renovarEnvioLote, buscarClinicaDoLote, buscarIdsParaEnvio, buscarAgendamentosPorIds } from "@/db/queries/lotes";
-import { marcarAgendamentoEnviado, marcarMensagemEnviada, marcarMensagemFalhou, reservarMensagem } from "@/db/queries/mensagens";
+import { marcarAgendamentoEnviado, marcarMensagemEnviada, marcarMensagemFalhou, recuperarPendentesVencidas, reservarMensagem } from "@/db/queries/mensagens";
+import { rodarRecuperarPendentes } from "@/lib/envio/pendentes";
 import { rodarEnviarLote, type DepsLote, type StepLike } from "@/lib/envio/lote";
 import { buscarConhecimento } from "@/db/queries/conhecimento";
 import { classificarResposta } from "@/ai/harness/classificar-resposta";
@@ -131,4 +132,16 @@ export const enviarLote = inngest.createFunction(
   },
 );
 
-export const functions = [processarResposta, atualizarStatusMensagem, enviarLote];
+/**
+ * A cada 5 min: mensagem `pendente` há mais de 15 min (crash entre reservar e confirmar) vira `falhou`.
+ * Nunca reenvia sozinha (poderia duplicar se o crash ocorreu depois da chamada à Meta); o reenvio é manual,
+ * pelo botão da Central de Envios, e só para falhas sem wamid.
+ */
+export const recuperarPendentes = inngest.createFunction(
+  { id: "recuperar-pendentes", retries: 1, triggers: [{ cron: "*/5 * * * *" }] },
+  async ({ step }) =>
+    step.run("marcar-vencidas", () =>
+      rodarRecuperarPendentes({ agora: () => new Date(), marcarVencidas: recuperarPendentesVencidas })),
+);
+
+export const functions = [processarResposta, atualizarStatusMensagem, enviarLote, recuperarPendentes];

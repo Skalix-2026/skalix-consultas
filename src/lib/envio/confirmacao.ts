@@ -13,14 +13,20 @@ export type AgendamentoEnvio = {
 
 export type DepsEnvio = {
   sender: Sender;
-  /** INSERT ... ON CONFLICT DO NOTHING RETURNING: id se reservou, null se já existia. */
-  reservarMensagem(agendamentoId: string, tipo: "confirmacao"): Promise<string | null>;
+  /**
+   * INSERT ... ON CONFLICT DO NOTHING RETURNING: id se reservou, null se já existia.
+   * Com `reabrirFalhasAntesDe` (reenvio manual), uma mensagem `falhou` SEM wamid e com `atualizadaEm` anterior
+   * a esse instante é reaberta atomicamente (volta a `pendente`) e o id dela é devolvido.
+   */
+  reservarMensagem(agendamentoId: string, tipo: "confirmacao", opcoes?: OpcoesReserva): Promise<string | null>;
   marcarMensagemEnviada(id: string, d: { wamid: string; corpo: string }): Promise<void>;
   marcarMensagemFalhou(id: string, d: { erroCodigo: number | null; erroMensagem: string }): Promise<void>;
   marcarAgendamentoEnviado(agendamentoId: string): Promise<void>;
   /** Espera entre tentativas de gravar o wamid (injetável em testes). */
   esperar?: (ms: number) => Promise<void>;
 };
+
+export type OpcoesReserva = { reabrirFalhasAntesDe?: Date };
 
 export type ResultadoEnvio = "enviada" | "pulada" | "falhou";
 
@@ -61,16 +67,18 @@ function codigoDoErro(e: unknown): number | null {
 /**
  * Reserva → envia → registra. Nunca lança por falha de envio (o lote segue).
  * "pulada": a reserva já existia (reenvio do Inngest, outro disparo do lote) — nada é enviado.
- * Se o processo morrer entre reservar e enviar, a mensagem fica "pendente" e NÃO é reenviada
- * automaticamente (preferimos não enviar a enviar duas vezes).
+ * Se o processo morrer entre reservar e enviar, a mensagem fica "pendente"; a rotina `recuperar-pendentes`
+ * a marca "falhou" após 15 min e ela só volta a ser enviada por reenvio manual (`reabrirFalhasAntesDe`),
+ * e apenas se não tiver wamid (preferimos não enviar a enviar duas vezes).
  */
 export async function enviarConfirmacao(
   deps: DepsEnvio,
   ag: AgendamentoEnvio,
   clinica: { phoneNumberId: string; fuso: string },
   token: string,
+  opcoes: OpcoesReserva = {},
 ): Promise<ResultadoEnvio> {
-  const mensagemId = await deps.reservarMensagem(ag.id, "confirmacao");
+  const mensagemId = await deps.reservarMensagem(ag.id, "confirmacao", opcoes);
   if (!mensagemId) return "pulada";
 
   const corpo = montarTextoConfirmacao(ag, clinica.fuso);
@@ -117,11 +125,12 @@ export async function enviarBloco(
   bloco: AgendamentoEnvio[],
   clinica: { phoneNumberId: string; fuso: string },
   token: string,
+  opcoes: OpcoesReserva = {},
 ): Promise<ResumoLote> {
   const r: ResumoLote = { enviadas: 0, puladas: 0, falhas: 0 };
   for (const ag of bloco) {
     try {
-      const res = await enviarConfirmacao(deps, ag, clinica, token);
+      const res = await enviarConfirmacao(deps, ag, clinica, token, opcoes);
       if (res === "enviada") r.enviadas++;
       else if (res === "pulada") r.puladas++;
       else r.falhas++;

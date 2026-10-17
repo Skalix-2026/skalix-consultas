@@ -3,7 +3,7 @@ import { NonRetriableError } from "inngest";
 import { fakeSender, type Sender } from "@/lib/whatsapp";
 import {
   enviarBloco, enviarConfirmacao, intervaloDoDia, montarTextoConfirmacao, resolverToken,
-  type AgendamentoEnvio, type DepsEnvio,
+  type AgendamentoEnvio, type DepsEnvio, type OpcoesReserva,
 } from "./confirmacao";
 import { rodarEnviarLote, type DepsLote, type StepLike } from "./lote";
 
@@ -21,15 +21,24 @@ function ag(n: number, over: Partial<AgendamentoEnvio> = {}): AgendamentoEnvio {
 
 /** Banco em memória que imita o índice único (agendamento_id, tipo) e os UPDATEs. */
 function memoria() {
-  const mensagens = new Map<string, { id: string; status: string; wamid?: string; corpo?: string; erroCodigo?: number | null; erroMensagem?: string }>();
+  const mensagens = new Map<string, { id: string; status: string; wamid?: string; corpo?: string; erroCodigo?: number | null; erroMensagem?: string | null; atualizadaEm?: Date }>();
   const agendamentos = new Map<string, string>();
   let seq = 0;
   const deps = {
-    reservarMensagem: vi.fn(async (agId: string, tipo: string) => {
+    reservarMensagem: vi.fn(async (agId: string, tipo: string, opcoes: OpcoesReserva = {}) => {
       const k = `${agId}:${tipo}`;
-      if (mensagens.has(k)) return null; // ON CONFLICT DO NOTHING
+      const atual = mensagens.get(k);
+      if (atual) {
+        // ON CONFLICT DO UPDATE ... WHERE status='falhou' AND wamid IS NULL AND atualizada_em < corte (só no reenvio manual)
+        const corte = opcoes.reabrirFalhasAntesDe;
+        if (corte && atual.status === "falhou" && !atual.wamid && (atual.atualizadaEm ?? new Date(0)) < corte) {
+          Object.assign(atual, { status: "pendente", erroCodigo: null, erroMensagem: null, atualizadaEm: new Date() });
+          return atual.id;
+        }
+        return null; // ON CONFLICT DO NOTHING
+      }
       const id = `msg-${++seq}`;
-      mensagens.set(k, { id, status: "pendente" });
+      mensagens.set(k, { id, status: "pendente", atualizadaEm: new Date() });
       return id;
     }),
     marcarMensagemEnviada: vi.fn(async (id: string, d: { wamid: string; corpo: string }) => {
@@ -127,6 +136,70 @@ describe("enviarConfirmacao", () => {
     expect(msg).toMatchObject({ status: "falhou", erroCodigo: 130497 });
     expect(msg.erroMensagem).not.toContain("900000001");
     expect(m.agendamentos.has("ag-1")).toBe(false);
+  });
+});
+
+describe("reenvio manual de falhas", () => {
+  const FUTURO = { reabrirFalhasAntesDe: new Date(Date.now() + 60_000) };
+
+  it("falha SEM wamid é reaberta e reenviada uma vez; reabrir de novo não duplica", async () => {
+    const sendText = vi.fn().mockRejectedValueOnce(Object.assign(new Error("x"), { code: 131026 })).mockResolvedValue({ wamid: "wamid.2" });
+    const { m, deps } = comSender({ sendText, sendTemplate: vi.fn() });
+    expect(await enviarConfirmacao(deps, ag(1), CLINICA, "t")).toBe("falhou");
+    expect(await enviarConfirmacao(deps, ag(1), CLINICA, "t", FUTURO)).toBe("enviada");
+    expect(await enviarConfirmacao(deps, ag(1), CLINICA, "t", FUTURO)).toBe("pulada");
+    expect(sendText).toHaveBeenCalledTimes(2);
+    expect(m.mensagens.get("ag-1:confirmacao")).toMatchObject({ status: "enviada", wamid: "wamid.2", erroCodigo: null });
+  });
+
+  it("falha COM wamid (Meta aceitou e depois reportou falha) nunca é reaberta", async () => {
+    const sendText = vi.fn().mockResolvedValue({ wamid: "wamid.1" });
+    const { m, deps } = comSender({ sendText, sendTemplate: vi.fn() });
+    await enviarConfirmacao(deps, ag(1), CLINICA, "t");
+    m.mensagens.get("ag-1:confirmacao")!.status = "falhou"; // webhook de status 'failed'
+    expect(await enviarConfirmacao(deps, ag(1), CLINICA, "t", FUTURO)).toBe("pulada");
+    expect(sendText).toHaveBeenCalledTimes(1);
+  });
+
+  it("sem a opção de reabrir (fluxo normal), falhou continua sem reenvio", async () => {
+    const sendText = vi.fn().mockRejectedValue(new Error("x"));
+    const { deps } = comSender({ sendText, sendTemplate: vi.fn() });
+    await enviarConfirmacao(deps, ag(1), CLINICA, "t");
+    expect(await enviarConfirmacao(deps, ag(1), CLINICA, "t")).toBe("pulada");
+  });
+
+  it("falha ocorrida depois do corte (mesmo disparo) não é reaberta", async () => {
+    const sendText = vi.fn().mockRejectedValue(new Error("x"));
+    const { deps } = comSender({ sendText, sendTemplate: vi.fn() });
+    const corte = { reabrirFalhasAntesDe: new Date(Date.now() - 60_000) };
+    await enviarConfirmacao(deps, ag(1), CLINICA, "t");
+    expect(await enviarConfirmacao(deps, ag(1), CLINICA, "t", corte)).toBe("pulada");
+  });
+
+  it("rodarEnviarLote reabre falhas sem wamid e não reenvia as já enviadas", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-13T12:00:00Z"), toFake: ["Date"] });
+    try {
+      const m = memoria();
+      m.mensagens.set("ag-1:confirmacao", { id: "m-a", status: "falhou", atualizadaEm: new Date("2026-10-13T11:00:00Z") });
+      m.mensagens.set("ag-2:confirmacao", { id: "m-b", status: "enviada", wamid: "w", atualizadaEm: new Date("2026-10-13T11:00:00Z") });
+      const sendText = vi.fn().mockResolvedValue({ wamid: "wamid.novo" });
+      const d: DepsLote = {
+        sender: { sendText, sendTemplate: vi.fn() }, ...m.deps, env: { WHATSAPP_FAKE: "1" },
+        agora: () => new Date(),
+        carregarClinicaDoLote: vi.fn(async () => CLINICA),
+        listarIdsParaEnvio: vi.fn(async () => ["ag-1", "ag-2"]),
+        carregarAgendamentos: vi.fn(async (ids: string[]) => [ag(1), ag(2)].filter((a) => ids.includes(a.id))),
+        definirStatusLote: vi.fn(async () => {}),
+        renovarEnvioLote: vi.fn(async () => {}),
+      };
+      const passos: StepLike = { run: (_id, fn) => fn(), sleep: async () => {} };
+      const r = await rodarEnviarLote(passos, { loteId: "l1" }, d);
+      expect(r).toMatchObject({ enviadas: 1, puladas: 1 });
+      expect(sendText).toHaveBeenCalledTimes(1);
+      const r2 = await rodarEnviarLote(passos, { loteId: "l1" }, d);
+      expect(r2).toMatchObject({ enviadas: 0, puladas: 2 });
+      expect(sendText).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
   });
 });
 

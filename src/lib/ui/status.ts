@@ -56,9 +56,10 @@ export function podeEnviar(status: string, inseridos: number, travado = false): 
   return (status === "importado" || status === "conferido" || status === "concluido" || (status === "enviando" && travado)) && inseridos > 0;
 }
 
-export function textoBotaoEnviar(status: string): string {
-  if (status === "enviando") return "Reenviar pendentes";
-  return status === "concluido" ? "Reenviar pendentes" : "Enviar confirmações";
+export function textoBotaoEnviar(status: string, falhas = 0): string {
+  const reenviar = falhas > 0 ? "Reenviar pendentes e falhas" : "Reenviar pendentes";
+  if (status === "enviando") return reenviar;
+  return status === "concluido" ? reenviar : "Enviar confirmações";
 }
 
 export const INTERVALO_RAPIDO_MS = 3000;

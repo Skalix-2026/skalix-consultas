@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import { agendamentos, mensagens } from "@/db/schema";
 
 /** Import tardio: evita abrir conexão em testes/ambientes sem DATABASE_URL. */
@@ -10,15 +10,47 @@ async function getDb() {
 /**
  * Reserva a mensagem (agendamento_id, tipo) ANTES de enviar: INSERT ... ON CONFLICT DO NOTHING RETURNING.
  * Retorna o id se este chamador reservou; null se já existia (enviada, em andamento ou falhou) → não enviar.
+ * `atualizadaEm` nasce com now() na reserva: é a referência do prazo de `recuperarPendentesVencidas`.
+ *
+ * Reenvio manual (`reabrirFalhasAntesDe`): em vez de DO NOTHING, o conflito vira UPDATE condicionado a
+ * status='falhou' AND wamid IS NULL AND atualizada_em < corte. Só quem ganha o UPDATE recebe o id (atômico:
+ * execuções repetidas ou simultâneas não reabrem duas vezes). Falha COM wamid (a Meta aceitou e depois
+ * reportou falha de entrega) nunca é reaberta aqui: poderia duplicar a mensagem.
  */
-export async function reservarMensagem(agendamentoId: string, tipo: "confirmacao"): Promise<string | null> {
+export async function reservarMensagem(
+  agendamentoId: string,
+  tipo: "confirmacao",
+  opcoes: { reabrirFalhasAntesDe?: Date } = {},
+): Promise<string | null> {
   const db = await getDb();
-  const rows = await db.insert(mensagens)
-    .values({ agendamentoId, tipo, status: "pendente" })
-    // índice único parcial (tipo <> texto_livre): o ON CONFLICT precisa repetir o predicado
-    .onConflictDoNothing({ target: [mensagens.agendamentoId, mensagens.tipo], where: sql`tipo <> 'texto_livre'` })
-    .returning({ id: mensagens.id });
+  const insercao = db.insert(mensagens).values({ agendamentoId, tipo, status: "pendente" });
+  // índice único parcial (tipo <> texto_livre): o ON CONFLICT precisa repetir o predicado
+  const alvo = [mensagens.agendamentoId, mensagens.tipo];
+  const predicado = sql`tipo <> 'texto_livre'`;
+  const corte = opcoes.reabrirFalhasAntesDe;
+  const rows = corte
+    ? await insercao.onConflictDoUpdate({
+        target: alvo,
+        targetWhere: predicado,
+        set: { status: "pendente", erroCodigo: null, erroMensagem: null, atualizadaEm: new Date() },
+        setWhere: and(eq(mensagens.status, "falhou"), isNull(mensagens.wamid), lt(mensagens.atualizadaEm, corte)),
+      }).returning({ id: mensagens.id })
+    : await insercao.onConflictDoNothing({ target: alvo, where: predicado }).returning({ id: mensagens.id });
   return rows[0]?.id ?? null;
+}
+
+/**
+ * Rotina `recuperar-pendentes`: mensagem `pendente` com `atualizadaEm` anterior a `corte` (o processo morreu entre
+ * reservar e confirmar) vira `falhou`, sem dados de paciente. Um único UPDATE; devolve só a contagem.
+ * Inclui `texto_livre` pendente da resposta automática (aceitável: nada mais depende de `pendente` eterno).
+ */
+export async function recuperarPendentesVencidas(corte: Date, erroMensagem: string): Promise<number> {
+  const db = await getDb();
+  const rows = await db.update(mensagens)
+    .set({ status: "falhou", erroCodigo: null, erroMensagem, atualizadaEm: new Date() })
+    .where(and(eq(mensagens.status, "pendente"), lt(mensagens.atualizadaEm, corte)))
+    .returning({ id: mensagens.id });
+  return rows.length;
 }
 
 export async function marcarMensagemEnviada(id: string, d: { wamid: string; corpo: string }): Promise<void> {

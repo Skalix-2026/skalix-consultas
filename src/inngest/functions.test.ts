@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { logMensagemRecebida, logStatusAtualizado, logEnviarLote, functions, processarResposta } from "./functions";
+import { logMensagemRecebida, logStatusAtualizado, logEnviarLote, functions, processarResposta, recuperarPendentes } from "./functions";
 
 const TEXTO = "Sim, confirmo a consulta da Maria Souza com a Dra. Ana";
 
@@ -34,5 +34,10 @@ describe("funções registradas", () => {
     expect(functions).toContain(processarResposta);
     expect(processarResposta.id()).toBe("processar-resposta");
     expect(functions.map((f) => f.id())).not.toContain("processar-mensagem-recebida");
+  });
+
+  it("recuperar-pendentes está registrada", () => {
+    expect(functions).toContain(recuperarPendentes);
+    expect(recuperarPendentes.id()).toBe("recuperar-pendentes");
   });
 });

@@ -43,6 +43,8 @@ describe("status", () => {
     expect(podeEnviar("concluido", 2)).toBe(true);
     expect(podeEnviar("concluido", 0)).toBe(false);
     expect(textoBotaoEnviar("concluido")).toBe("Reenviar pendentes");
+    expect(textoBotaoEnviar("concluido", 2)).toBe("Reenviar pendentes e falhas");
+    expect(textoBotaoEnviar("importado", 2)).toBe("Enviar confirmações");
   });
   it("intervalo de polling", () => {
     expect(intervaloPolling("enviando", [])).toBe(3000);
