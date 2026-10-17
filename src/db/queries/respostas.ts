@@ -1,4 +1,5 @@
-import { and, asc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { TEXTO_REMOVIDO } from "@/lib/resposta/retencao";
 import { agendamentos, clinicas, mensagens, pacientes, respostas } from "@/db/schema";
 import { marcarEventoProcessado } from "@/db/queries/eventos";
 import type { AgendamentoAberto, DecisaoGravada, PacienteLocalizado } from "@/lib/resposta/processar";
@@ -38,7 +39,10 @@ export async function buscarTokenRef(phoneNumberId: string): Promise<string | nu
 export async function listarAgendamentosAbertos(pacienteId: string, agora: Date): Promise<AgendamentoAberto[]> {
   const db = await getDb();
   return db
-    .select({ id: agendamentos.id, atendimento: agendamentos.atendimento, dataHora: agendamentos.dataHora, status: agendamentos.status })
+    .select({
+      id: agendamentos.id, atendimento: agendamentos.atendimento, dataHora: agendamentos.dataHora, status: agendamentos.status,
+      profissional: agendamentos.profissional,
+    })
     .from(agendamentos)
     .where(and(
       eq(agendamentos.pacienteId, pacienteId),
@@ -115,6 +119,26 @@ export async function carregarCorpoPendente(mensagemId: string): Promise<string 
   const [row] = await db.select({ corpo: mensagens.corpo }).from(mensagens)
     .where(and(eq(mensagens.id, mensagemId), eq(mensagens.status, "pendente"), isNull(mensagens.wamid))).limit(1);
   return row?.corpo ?? null;
+}
+
+/**
+ * Retenção LGPD: um único UPDATE (sem loop) que troca o texto por '[removido]' e anula o motivo das respostas
+ * recebidas antes de `corte`. O filtro de "já anonimizada" evita reescrever linhas a cada execução do cron.
+ */
+export async function anonimizarRespostasAnterioresA(corte: Date): Promise<number> {
+  const db = await getDb();
+  const rows = await db.update(respostas)
+    .set({
+      texto: TEXTO_REMOVIDO,
+      // Só o motivo do modelo (origem paciente) é anulado; o rótulo "acao:*" das ações humanas é usado pela UI.
+      motivo: sql`CASE WHEN ${respostas.origem} = 'paciente' THEN NULL ELSE ${respostas.motivo} END`,
+    })
+    .where(and(
+      lt(respostas.recebidaEm, corte),
+      or(ne(respostas.texto, TEXTO_REMOVIDO), and(eq(respostas.origem, "paciente"), isNotNull(respostas.motivo))),
+    ))
+    .returning({ id: respostas.id });
+  return rows.length;
 }
 
 /** Falha definitiva da classificação (IA fora do ar, saída inválida): resposta e agendamento vão para a fila humana. */

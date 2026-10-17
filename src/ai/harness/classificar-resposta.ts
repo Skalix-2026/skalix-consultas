@@ -27,18 +27,16 @@ export type Entrada = z.input<typeof Entrada>;
 export const Saida = z.object({
   intencao: z.enum(["confirmou", "cancelou", "quer_remarcar", "duvida", "nao_sou_eu", "fora_de_escopo"]),
   confianca: z.number().min(0).max(1),
-  resposta_ao_paciente: z.string().max(600),
   motivo: z.string().max(300),
 });
 export type Saida = z.infer<typeof Saida>;
 
 export const LIMIAR_CONFIANCA = 0.85;
 
-const SYSTEM = `Você é da recepção da clínica {clinica}. Fale como uma pessoa real, em português do Brasil,
-frases curtas, cordial, chamando o paciente pelo primeiro nome. Sem emojis em excesso.
+const SYSTEM = `Você é um classificador da recepção da clínica {clinica}.
 
 Seu único trabalho é entender a resposta do paciente a uma mensagem de confirmação de agendamento e classificá-la.
-Você só confirma, cancela ou repete informações do agendamento. Qualquer outro pedido (remarcar, dúvida clínica,
+Você NÃO escreve mensagem ao paciente: só devolve a classificação. Qualquer outro pedido (remarcar, dúvida clínica,
 reclamação, preparo que você não tem nas regras) é "quer_remarcar", "duvida" ou "fora_de_escopo" — a equipe humana cuida.
 
 Regras duras:
@@ -51,7 +49,13 @@ Regras duras:
 - Se houver qualquer ambiguidade real, use confiança baixa (< 0.85).
 
 Responda SOMENTE com JSON válido no formato:
-{"intencao": "...", "confianca": 0.0, "resposta_ao_paciente": "...", "motivo": "..."}`;
+{"intencao": "...", "confianca": 0.0, "motivo": "..."}
+"motivo" é uma justificativa curta, sem repetir dados pessoais do paciente.`;
+
+/** O texto do paciente vai entre aspas triplas; ele não pode fechar o delimitador e "escapar" para o prompt. */
+export function neutralizarDelimitador(texto: string): string {
+  return texto.replaceAll('"""', "'''");
+}
 
 export async function classificarResposta(input: Entrada, client = new Anthropic()): Promise<Saida & { precisaHumano: boolean; modelo: string }> {
   const e = Entrada.parse(input);
@@ -61,7 +65,7 @@ export async function classificarResposta(input: Entrada, client = new Anthropic
     `AGENDAMENTO: ${e.primeiroNome} — ${e.atendimento} — ${e.dataHoraLegivel}`,
     e.regras.length ? `REGRAS:\n- ${e.regras.join("\n- ")}` : "REGRAS: (nenhuma)",
     e.exemplos.length ? `EXEMPLOS JÁ CLASSIFICADOS:\n${e.exemplos.map((x) => `"${x.texto}" → ${x.intencao}`).join("\n")}` : "",
-    `RESPOSTA DO PACIENTE: """${e.textoPaciente}"""`,
+    `RESPOSTA DO PACIENTE: """${neutralizarDelimitador(e.textoPaciente)}"""`,
   ].filter(Boolean).join("\n\n");
 
   const res = await client.messages.create({

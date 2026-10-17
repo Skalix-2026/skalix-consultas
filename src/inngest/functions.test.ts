@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { logMensagemRecebida, logStatusAtualizado, logEnviarLote, functions, processarResposta, recuperarPendentes } from "./functions";
+import { logMensagemRecebida, logStatusAtualizado, logEnviarLote, functions, processarResposta, recuperarPendentes, anonimizarRespostas } from "./functions";
 
 const TEXTO = "Sim, confirmo a consulta da Maria Souza com a Dra. Ana";
 
@@ -39,5 +39,10 @@ describe("funções registradas", () => {
   it("recuperar-pendentes está registrada", () => {
     expect(functions).toContain(recuperarPendentes);
     expect(recuperarPendentes.id()).toBe("recuperar-pendentes");
+  });
+
+  it("anonimizar-respostas está registrada", () => {
+    expect(functions).toContain(anonimizarRespostas);
+    expect(anonimizarRespostas.id()).toBe("anonimizar-respostas");
   });
 });

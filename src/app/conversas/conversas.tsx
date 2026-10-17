@@ -16,6 +16,7 @@ import {
   percentual,
   rotuloIntencao,
   textoValido,
+  ehTextoRemovido,
 } from "@/lib/ui/conversas";
 import { formatarDataHora } from "@/lib/ui/formatar";
 import { infoAgendamento, infoMensagem } from "@/lib/ui/status";
@@ -424,7 +425,11 @@ function Evento({ ev }: { ev: EventoHistorico }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-[80%] rounded-lg border bg-white px-3 py-2 text-sm">
-        <p className="whitespace-pre-wrap break-words">{ev.texto}</p>
+        {ehTextoRemovido(ev.texto) ? (
+          <p className="italic text-gray-500">mensagem removida (retenção de 90 dias)</p>
+        ) : (
+          <p className="whitespace-pre-wrap break-words">{ev.texto}</p>
+        )}
         <p className="mt-1 text-xs text-gray-600">
           {formatarDataHora(ev.quando)}
           {ev.intencao && (

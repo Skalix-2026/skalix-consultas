@@ -3,6 +3,7 @@ import { mask, mascararNumerosNoTexto, type Sender } from "@/lib/whatsapp";
 import { variantesTelefone } from "@/lib/telefone";
 import { formatarDataHora, resolverToken } from "@/lib/envio/confirmacao";
 import type { StepLike } from "@/lib/envio/lote";
+import { textoResposta } from "@/lib/resposta/textos";
 import { montarContexto, type ContextoClinica, type LinhaConhecimento, type RegrasClinica } from "@/ai/rag/contexto-clinica";
 
 /**
@@ -28,7 +29,7 @@ export type PacienteLocalizado = {
   regras?: RegrasClinica | null;
 };
 
-export type AgendamentoAberto = { id: string; atendimento: string; dataHora: Date; status: string };
+export type AgendamentoAberto = { id: string; atendimento: string; dataHora: Date; status: string; profissional?: string | null };
 
 export type StatusDecidido = "confirmado" | "cancelado" | "excecao";
 
@@ -195,8 +196,14 @@ export async function rodarProcessarResposta(
       console.warn("[resposta] status já decidido por humano; texto automático não enviado", log);
       return { resultado: novoStatus, agendamentoId: ag.id, enviada: false };
     }
-    if (!responder || !saida.resposta_ao_paciente.trim()) return { resultado: novoStatus, agendamentoId: ag.id, enviada: false };
-    const mensagemId = await deps.reservarRespostaAutomatica(ag.id, entrada.wamid, saida.resposta_ao_paciente);
+    // texto FIXO por intenção: nada do que o modelo devolveu (fora a intenção) chega ao paciente
+    const textoAuto = responder
+      ? textoResposta(saida.intencao, {
+          primeiroNome: primeiroNomeParaIA(paciente.nome), dataHora: ag.dataHora, fuso: paciente.fuso, profissional: ag.profissional,
+        })
+      : null;
+    if (!textoAuto) return { resultado: novoStatus, agendamentoId: ag.id, enviada: false };
+    const mensagemId = await deps.reservarRespostaAutomatica(ag.id, entrada.wamid, textoAuto);
     return { resultado: novoStatus, agendamentoId: ag.id, ...(mensagemId ? { mensagemId } : { enviada: false }) };
   });
 

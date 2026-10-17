@@ -11,8 +11,10 @@ import { classificarResposta } from "@/ai/harness/classificar-resposta";
 import { rodarProcessarResposta, type DepsResposta } from "@/lib/resposta/processar";
 import {
   localizarPaciente, buscarTokenRef, listarAgendamentosAbertos, registrarResposta, registrarSemPaciente, gravarDecisao,
-  reservarRespostaAutomatica, carregarCorpoPendente, marcarFalhaClassificacao,
+  reservarRespostaAutomatica, carregarCorpoPendente, marcarFalhaClassificacao, anonimizarRespostasAnterioresA,
 } from "@/db/queries/respostas";
+import { anonimizarEventosAnterioresA } from "@/db/queries/eventos";
+import { rodarAnonimizarRespostas } from "@/lib/resposta/retencao";
 
 /*
  * Logs: só ids técnicos (wamid, status, loteId), telefone mascarado e tamanho do texto.
@@ -144,4 +146,17 @@ export const recuperarPendentes = inngest.createFunction(
       rodarRecuperarPendentes({ agora: () => new Date(), marcarVencidas: recuperarPendentesVencidas })),
 );
 
-export const functions = [processarResposta, atualizarStatusMensagem, enviarLote, recuperarPendentes];
+/**
+ * Todo dia às 06:00 UTC: anonimiza (LGPD) respostas e o payload de eventos_webhook com mais de 90 dias (um UPDATE
+ * por tabela). Mantém intenção, confiança, datas e origem. Log só com as duas contagens.
+ */
+export const anonimizarRespostas = inngest.createFunction(
+  { id: "anonimizar-respostas", retries: 1, triggers: [{ cron: "0 6 * * *" }] },
+  async ({ step }) =>
+    step.run("anonimizar", () =>
+      rodarAnonimizarRespostas({ agora: () => new Date(), anonimizarAnterioresA: anonimizarRespostasAnterioresA,
+        anonimizarEventosAnterioresA,
+      })),
+);
+
+export const functions = [processarResposta, atualizarStatusMensagem, enviarLote, recuperarPendentes, anonimizarRespostas];

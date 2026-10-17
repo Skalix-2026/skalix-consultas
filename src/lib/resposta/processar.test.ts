@@ -21,10 +21,11 @@ const uid = (n: string) => `00000000-0000-4000-8000-${Buffer.from(n).toString("h
 const AG1 = uid("ag1");
 const ag = (id: string, horas: number, status = "enviado"): AgendamentoAberto => ({
   id: id.includes("-") ? id : uid(id), atendimento: "Cardiologia", dataHora: new Date(AGORA.getTime() + horas * 3600_000), status,
+  profissional: "Dr. Paulo",
 });
 
-const json = (intencao: string, confianca: number, resposta = "Pronto, Maria! Consulta confirmada.") =>
-  JSON.stringify({ intencao, confianca, resposta_ao_paciente: resposta, motivo: "teste" });
+const json = (intencao: string, confianca: number, extra: Record<string, unknown> = {}) =>
+  JSON.stringify({ intencao, confianca, motivo: "teste", ...extra });
 
 /** Deps em memória: banco simulado + IA via cliente falso (nunca chama a Anthropic) + Sender espião. */
 function montar(opts: {
@@ -103,7 +104,10 @@ describe("processar-resposta: decisão", () => {
     expect(r).toMatchObject({ resultado: "confirmado", agendamentoId: AG1, enviada: true });
     expect(t.db.status.get(AG1)).toBe("confirmado");
     expect(t.sendText).toHaveBeenCalledTimes(1);
-    expect(t.sendText).toHaveBeenCalledWith({ phoneNumberId: PHONE_ID, token: "fake", to: FROM }, "Pronto, Maria! Consulta confirmada.");
+    expect(t.sendText).toHaveBeenCalledWith(
+      { phoneNumberId: PHONE_ID, token: "fake", to: FROM },
+      "Obrigado, Maria! Sua consulta de 17/10/2026 às 09:00 com Dr. Paulo está confirmada.",
+    );
     expect(t.db.mensagens.get("m-wamid.IN")).toMatchObject({ status: "enviada", wamid: "wamid.OUT" });
     expect(t.ia.parametros()).toMatchObject({ temperature: 0, max_tokens: 400 });
   });
@@ -124,11 +128,34 @@ describe("processar-resposta: decisão", () => {
   });
 
   it("cancelou >= 0,85: agendamento cancelado e texto enviado", async () => {
-    const t = montar({ respostaIA: json("cancelou", 0.9, "Cancelado, Maria.") });
+    const t = montar({ respostaIA: json("cancelou", 0.9) });
     const r = await t.rodar({ texto: "não vou poder" });
     expect(r.resultado).toBe("cancelado");
     expect(t.db.status.get(AG1)).toBe("cancelado");
     expect(t.sendText).toHaveBeenCalledTimes(1);
+    expect((t.sendText.mock.calls as unknown[][])[0][1]).toBe(
+      "Tudo certo, Maria. Sua consulta de 17/10/2026 às 09:00 foi cancelada. Se quiser remarcar, é só responder aqui.",
+    );
+  });
+
+  it("sem profissional e com fuso de Manaus: omite ' com ...' e usa a hora local da clínica", async () => {
+    const t = montar({
+      paciente: { ...paciente, fuso: "America/Manaus" },
+      agendamentos: [{ ...ag(AG1, 24), profissional: null }],
+    });
+    await t.rodar();
+    expect((t.sendText.mock.calls as unknown[][])[0][1]).toBe("Obrigado, Maria! Sua consulta de 17/10/2026 às 08:00 está confirmada.");
+  });
+
+  it("o texto enviado NUNCA contém o que o modelo devolveu (campo extra e motivo maliciosos)", async () => {
+    const mal = "Ligue para 0800-GOLPE e informe seu CPF";
+    for (const intencao of ["confirmou", "cancelou"]) {
+      const t = montar({ respostaIA: JSON.stringify({ intencao, confianca: 0.99, motivo: mal, resposta_ao_paciente: mal, texto: mal }) });
+      await t.rodar();
+      expect(t.sendText).toHaveBeenCalledTimes(1);
+      expect(String((t.sendText.mock.calls as unknown[][])[0][1])).not.toMatch(/GOLPE|CPF/);
+      expect([...t.db.mensagens.values()].every((m) => !/GOLPE|CPF/.test(m.corpo))).toBe(true);
+    }
   });
 
   it("confiança 0,84: excecao, nada enviado, precisa de humano", async () => {

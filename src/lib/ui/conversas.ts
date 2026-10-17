@@ -84,3 +84,6 @@ const INTENCAO: Record<string, string> = {
 
 export const rotuloIntencao = (i: string) => INTENCAO[i] ?? i;
 export const percentual = (c: number) => `${Math.round(Math.min(1, Math.max(0, c)) * 100)}%`;
+
+/** Marcador gravado pela rotina de retenção de 90 dias (`TEXTO_REMOVIDO` em src/lib/resposta/retencao.ts). */
+export const ehTextoRemovido = (texto: string) => texto === "[removido]";

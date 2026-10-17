@@ -9,7 +9,7 @@ export default function Privacidade() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 text-gray-800 leading-relaxed">
       <h1 className="text-3xl font-semibold">Política de Privacidade</h1>
-      <p className="mt-2 text-sm text-gray-500">Skalix Consultas · Última atualização: 7 de outubro de 2026</p>
+      <p className="mt-2 text-sm text-gray-500">Skalix Consultas · Última atualização: 16 de outubro de 2026</p>
 
       <h2 className="mt-8 text-xl font-semibold">1. Quem somos</h2>
       <p className="mt-2">
@@ -42,8 +42,13 @@ export default function Privacidade() {
 
       <h2 className="mt-8 text-xl font-semibold">5. Por quanto tempo guardamos</h2>
       <p className="mt-2">
-        Os registros de agendamento e as mensagens são mantidos pelo período definido em contrato com a clínica, por padrão
-        12 meses após a data do atendimento, e depois excluídos ou anonimizados.
+        Os registros de agendamento e as mensagens são mantidos pelo período definido com a clínica e serão excluídos ou
+        anonimizados quando deixarem de ser necessários, conforme definido com a clínica.
+      </p>
+      <p className="mt-2">
+        Após 90 dias, o texto das mensagens recebidas dos pacientes (e o registro bruto do evento do WhatsApp que o contém,
+        incluindo o número de telefone) é substituído por um marcador. Permanecem somente metadados da classificação
+        (intenção e grau de confiança) e as datas.
       </p>
 
       <h2 className="mt-8 text-xl font-semibold">6. Segurança</h2>

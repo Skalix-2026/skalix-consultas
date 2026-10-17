@@ -42,7 +42,7 @@ apaga dados de pacientes sem aprovação explícita do Ti.
   `src/ai/harness` (um harness por tarefa de IA), `src/ai/prompts`, `evals/`.
 - Um harness = `input schema (zod)` → monta contexto (RAG) → chama modelo → `output schema (zod)` → decide.
   A IA nunca escreve no banco; ela retorna JSON e o código decide.
-- Saída de classificação: `{ intencao, confianca, resposta_ao_paciente, motivo }`.
+- Saída de classificação: `{ intencao, confianca, motivo }` (a resposta ao paciente é texto fixo por intenção, nunca do modelo).
   `confianca < 0.85` → fila humana. Intenções: confirmou | cancelou | quer_remarcar | duvida | nao_sou_eu | fora_de_escopo.
 - Dados pessoais: mascarar telefone (`(11) 9****-1234`) em toda UI e em logs; nunca enviar sobrenome
   nem telefone completo ao modelo; nunca guardar diagnóstico/prontuário.
@@ -74,17 +74,23 @@ apaga dados de pacientes sem aprovação explícita do Ti.
   relativas (`docs/exemplos/hoje/`, fora do git); (d) Playwright configurado (`playwright.config.ts`, login via
   `PAINEL_SENHA` em `e2e/auth.setup.ts`, `npm run test:e2e`): 7 testes E2E verdes. 231 testes Vitest e typecheck verdes.
 - Repositório agora é **público**: nunca versionar segredos nem dados reais (`.env` e `.auth/` ficam no .gitignore).
-- 16 out: **Fase 2 implementada (etapas 1–5), aguardando 3 decisões do Ti.** No main, revisada pelo revisor (aprovado com
-  ressalvas), 331 testes Vitest, typecheck e 18 E2E verdes. `processar-resposta` (Inngest) classifica com Haiku, grava em
-  `respostas` e atualiza o status (confirmado/cancelado) ou `excecao`; RAG leve (`src/ai/rag`); `/conversas` e `/agenda`;
-  cron `recuperar-pendentes` (pendente > 15 min → falhou; reenvio manual só sem wamid). `db:push` aplicado: enum `excecao`,
-  `mensagens.resposta_a_wamid`, `respostas.origem` e índice parcial `mensagens_idempotencia` (WHERE tipo <> 'texto_livre';
-  o drizzle-kit NÃO detecta mudança de WHERE em índice existente — exige SQL manual, ver decisoes.md).
-- **Pendências para fechar a Fase 2:** (a) `npm run eval` NÃO rodou: a chave da Anthropic não tem workspace (a API pede o
-  header `anthropic-workspace-id`); a meta ≥ 97% em confirmou/cancelou segue sem medição e o prompt mudou na etapa 2;
-  (b) LGPD: `respostas.texto` guarda a mensagem do paciente na íntegra, sem retenção definida — decisão do Ti;
-  (c) `resposta_ao_paciente` do modelo vai ao paciente sem filtro (risco de injeção) — decidir texto fixo por intenção;
-  (d) smoke manual no banco (reabrir falha com 2ª reserva nula, wamid repetido) e tempo webhook→status com Haiku real (< 10 s).
+- 16 out: **Fase 2 concluída (etapas 1–5), exceto a medição real do tempo webhook→status.** Revisada pelo revisor, 354 testes
+  Vitest, typecheck e 18 E2E verdes. `processar-resposta` (Inngest) classifica com Haiku, grava em `respostas` e atualiza o
+  status (confirmado/cancelado) ou `excecao`; a resposta ao paciente é TEXTO FIXO por intenção (`src/lib/resposta/textos.ts`),
+  nunca do modelo; RAG leve (`src/ai/rag`); `/conversas` e `/agenda`; cron `recuperar-pendentes` (pendente > 15 min → falhou;
+  reenvio manual só sem wamid); cron diário `anonimizar-respostas` (LGPD: após 90 dias `respostas.texto` vira '[removido]', o
+  `motivo` de origem paciente é anulado e `eventos_webhook.payload` vira `{"anonimizado":true}`; prazo na página /privacidade).
+  `db:push` aplicado: enum `excecao`, `mensagens.resposta_a_wamid`, `respostas.origem` e índice parcial `mensagens_idempotencia`
+  (WHERE tipo <> 'texto_livre'; o drizzle-kit NÃO detecta mudança de WHERE em índice existente — exige SQL manual, ver decisoes.md).
+- **Eval (16 out, prompt sem `resposta_ao_paciente`):** confirmou/cancelou 15/15 = 100% (meta ≥ 97% ok); geral 26/30 (86,7%);
+  os 4 erros são fora do núcleo (endereço→fora_de_escopo, "número errado" ×2→fora_de_escopo, dor no peito→duvida) e todos caem na
+  fila humana. Custo ≈ US$ 0,03. A `ANTHROPIC_API_KEY` agora tem workspace.
+- **Smoke no banco (16 out):** 9/9 ok com dados fictícios removidos (reserva idempotente, reabertura de falha sem wamid no índice
+  parcial, falha com wamid nunca reaberta, 2 texto_livre por agendamento, resposta_a_wamid e wamid de resposta repetidos).
+- **Pendências:** (a) medir o tempo real webhook→status com Haiku real (meta < 10 s) e o teste manual ponta a ponta com lote
+  FAKE; (b) rotina de 12 meses para agendamentos/mensagens não existe (a página /privacidade não promete prazo) e
+  `mensagens.corpo` fica fora da retenção; (c) conferir no Inngest que `recuperar-pendentes` e `anonimizar-respostas` aparecem
+  após o deploy.
 - Riscos aceitos para a Fase 3: reenvio manual pode duplicar; retry pode duplicar a resposta automática; janela de 24 h usa
   a hora do processamento e não a da Meta; agenda trunca em 1000 linhas; paciente já confirmado que cancela cai na fila humana.
 - Pontos em aberto: Haiku com confiança < 0.85 só avisa; `concurrency: 1` do enviar-lote é global; sem rate limit no login.

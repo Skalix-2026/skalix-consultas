@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ConversaResumo } from "@/lib/schemas-conversas";
 import {
-  agendamentoPadrao, AVISO_FORA_DA_JANELA, contarExcecoes, horarioRelativo, mensagemErroAcao,
+  agendamentoPadrao, AVISO_FORA_DA_JANELA, contarExcecoes, ehTextoRemovido, horarioRelativo, mensagemErroAcao,
   ordenarConversas, percentual, textoValido,
 } from "./conversas";
 
@@ -60,5 +60,13 @@ describe("lista e texto", () => {
     expect(textoValido("oi")).toBe(true);
     expect(textoValido("a".repeat(1001))).toBe(false);
     expect(percentual(0.912)).toBe("91%");
+  });
+});
+
+describe("ehTextoRemovido", () => {
+  it("reconhece só o marcador da retenção", () => {
+    expect(ehTextoRemovido("[removido]")).toBe(true);
+    expect(ehTextoRemovido("oi")).toBe(false);
+    expect(ehTextoRemovido("[removido] oi")).toBe(false);
   });
 });
