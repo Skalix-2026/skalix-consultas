@@ -33,6 +33,14 @@ describe("classificarResposta", () => {
     expect(JSON.stringify(vi.mocked(registrarUso).mock.calls[0][0])).not.toContain("Maria");
   });
 
+  it("nome da clínica com $& ou $1 entra literal no system prompt", async () => {
+    const { client, create } = clienteFalso(ok);
+    await classificarResposta({ ...base, clinicaNome: "Clínica $& $1 $$" }, client);
+    const system = String((create.mock.calls[0][0] as { system: string }).system);
+    expect(system).toContain("Clínica $& $1 $$");
+    expect(system).not.toContain("{clinica}");
+  });
+
   it("registra uso mesmo quando a resposta falha (chamada já foi paga)", async () => {
     const { client } = clienteFalso("não sei");
     await expect(classificarResposta(base, client)).rejects.toThrow(/não retornou JSON/);

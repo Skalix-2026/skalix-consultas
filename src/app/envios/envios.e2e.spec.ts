@@ -65,4 +65,5 @@ test("Central de Envios: lote concluído com falhas mostra a contagem e 'Reenvia
   await page.goto("/envios?lote=lote-4");
   await expect(page.getByText("Falhas de envio:")).toBeVisible();
   await expect(page.getByRole("button", { name: "Reenviar pendentes e falhas" })).toBeEnabled();
+  await expect(page.getByText("o reenvio pode duplicar")).toBeVisible();
 });

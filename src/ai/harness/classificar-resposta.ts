@@ -68,7 +68,7 @@ export async function classificarResposta(input: Entrada, client = new Anthropic
     model: modelo,
     max_tokens: 400,
     temperature: 0,
-    system: SYSTEM.replace("{clinica}", e.clinicaNome),
+    system: SYSTEM.replace("{clinica}", () => e.clinicaNome),
     messages: [{ role: "user", content: user }],
   });
   await registrarUso({ tarefa: TAREFA, modelo, usage: res.usage, metadados: e.agendamentoId ? { agendamento_id: e.agendamentoId } : undefined });

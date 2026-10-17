@@ -69,8 +69,11 @@ function montar(opts: {
     classificar,
     gravarDecisao: async (d) => {
       db.decisoes.push(d);
-      db.status.set(d.agendamentoId, d.novoStatus);
       for (const r of db.respostas.values()) if (r.id === d.respostaId) r.decidida = true;
+      // igual ao banco: só aplica se o agendamento ainda está aberto
+      if (!["inserido", "enviado", "excecao"].includes(db.status.get(d.agendamentoId) ?? "")) return false;
+      db.status.set(d.agendamentoId, d.novoStatus);
+      return true;
     },
     reservarRespostaAutomatica: async (_ag, wamid, corpo) => {
       if (db.reservas.has(wamid)) return null;
@@ -103,6 +106,21 @@ describe("processar-resposta: decisão", () => {
     expect(t.sendText).toHaveBeenCalledWith({ phoneNumberId: PHONE_ID, token: "fake", to: FROM }, "Pronto, Maria! Consulta confirmada.");
     expect(t.db.mensagens.get("m-wamid.IN")).toMatchObject({ status: "enviada", wamid: "wamid.OUT" });
     expect(t.ia.parametros()).toMatchObject({ temperature: 0, max_tokens: 400 });
+  });
+
+  it("corrida humano x IA: recepção já cancelou durante a classificação → IA não sobrescreve nem envia texto", async () => {
+    const t = montar({ respostaIA: json("confirmou", 0.97) });
+    t.classificar.mockImplementationOnce(async (e) => {
+      t.db.status.set(AG1, "cancelado"); // humano decide enquanto o Haiku responde
+      return classificarResposta(e, t.ia.client);
+    });
+    const r = await t.rodar();
+    expect(r).toMatchObject({ resultado: "confirmado", enviada: false });
+    expect(r.mensagemId).toBeUndefined();
+    expect(t.db.status.get(AG1)).toBe("cancelado");
+    expect(t.db.decisoes).toHaveLength(1); // decisão da IA ainda é gravada em respostas
+    expect(t.db.reservas.size).toBe(0);
+    expect(t.sendText).not.toHaveBeenCalled();
   });
 
   it("cancelou >= 0,85: agendamento cancelado e texto enviado", async () => {

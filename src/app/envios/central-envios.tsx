@@ -217,6 +217,9 @@ function DetalheLote({ id, aoMudar }: { id: string; aoMudar: () => void }) {
       <div role="status" aria-live="polite" className="text-sm text-amber-800">
         {lote.status === "enviando" && (travado ? "O envio parece travado há mais de 10 minutos. Use “Reenviar pendentes”: quem já recebeu não recebe de novo." : "Enviando as confirmações… esta tela atualiza sozinha.")}
       </div>
+      {falhas > 0 && (
+        <p className="text-xs text-gray-600">Mensagens interrompidas podem já ter chegado ao paciente; o reenvio pode duplicar.</p>
+      )}
       {erroEnvio && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{erroEnvio}</p>}
 
       <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">

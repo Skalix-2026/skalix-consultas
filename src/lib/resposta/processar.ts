@@ -63,8 +63,11 @@ export type DepsResposta = {
   /** Conhecimento da clínica (+ globais) para o RAG leve; falha aqui não derruba a classificação. */
   buscarConhecimento(clinicaId: string): Promise<LinhaConhecimento[]>;
   classificar(entrada: EntradaClassificacao): Promise<Saida>;
-  /** Grava classificação na resposta + status do agendamento (transação). */
-  gravarDecisao(d: DecisaoGravada): Promise<void>;
+  /**
+   * Grava classificação na resposta + status do agendamento (transação). O status só é aplicado se o agendamento ainda
+   * estiver aberto; devolve `false` se um humano já decidiu (a decisão da IA fica só em `respostas`).
+   */
+  gravarDecisao(d: DecisaoGravada): Promise<boolean>;
   /** Reserva (resposta_a_wamid unique) o texto automático como `texto_livre` pendente; null se já existia. */
   reservarRespostaAutomatica(agendamentoId: string, wamidResposta: string, corpo: string): Promise<string | null>;
   /** Corpo da mensagem reservada, só se ainda `pendente` e sem wamid. */
@@ -181,12 +184,17 @@ export async function rodarProcessarResposta(
 
     const { novoStatus, responder } = decidirResposta(saida);
     // status gravado ANTES de qualquer envio: falha do envio não desfaz nem reclassifica
-    await deps.gravarDecisao({
+    const aplicou = await deps.gravarDecisao({
       respostaId: reg.id, agendamentoId: ag.id, intencao: saida.intencao, confianca: saida.confianca, motivo: saida.motivo,
       classificadaPor: "haiku", precisaHumano: !responder, novoStatus,
     });
     console.log("[resposta] classificada", { ...log, intencao: saida.intencao, confianca: saida.confianca, status: novoStatus });
 
+    // humano decidiu durante a classificação: o status dele vale e o paciente não recebe texto automático
+    if (!aplicou) {
+      console.warn("[resposta] status já decidido por humano; texto automático não enviado", log);
+      return { resultado: novoStatus, agendamentoId: ag.id, enviada: false };
+    }
     if (!responder || !saida.resposta_ao_paciente.trim()) return { resultado: novoStatus, agendamentoId: ag.id, enviada: false };
     const mensagemId = await deps.reservarRespostaAutomatica(ag.id, entrada.wamid, saida.resposta_ao_paciente);
     return { resultado: novoStatus, agendamentoId: ag.id, ...(mensagemId ? { mensagemId } : { enviada: false }) };

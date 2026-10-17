@@ -81,16 +81,22 @@ export async function registrarSemPaciente(eventoId: string | undefined): Promis
   if (eventoId) await marcarEventoProcessado(eventoId, "paciente_nao_localizado");
 }
 
-/** Classificação na resposta + status do agendamento, na mesma transação. */
-export async function gravarDecisao(d: DecisaoGravada): Promise<void> {
+/**
+ * Classificação na resposta + status do agendamento, na mesma transação. O status só muda se o agendamento ainda
+ * estiver aberto (inserido/enviado/excecao): se a recepção decidiu enquanto a IA classificava, a decisão da IA
+ * fica em `respostas` mas não sobrescreve. Devolve se o status foi aplicado.
+ */
+export async function gravarDecisao(d: DecisaoGravada): Promise<boolean> {
   const db = await getDb();
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.update(respostas).set({
       intencao: d.intencao, confianca: d.confianca === null ? null : d.confianca.toFixed(3), motivo: d.motivo,
       classificadaPor: d.classificadaPor, precisaHumano: d.precisaHumano ? 1 : 0,
     }).where(eq(respostas.id, d.respostaId));
-    await tx.update(agendamentos).set({ status: d.novoStatus, atualizadoEm: new Date() })
-      .where(eq(agendamentos.id, d.agendamentoId));
+    const aplicados = await tx.update(agendamentos).set({ status: d.novoStatus, atualizadoEm: new Date() })
+      .where(and(eq(agendamentos.id, d.agendamentoId), inArray(agendamentos.status, ["inserido", "enviado", "excecao"])))
+      .returning({ id: agendamentos.id });
+    return aplicados.length > 0;
   });
 }
 
